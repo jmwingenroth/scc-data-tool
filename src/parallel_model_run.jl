@@ -37,16 +37,18 @@ addprocs(4-nprocs())
                          (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
 ]; 
 
-@time res = pmap((gas) for gas in [:CO2, :N2O, :CH4]) do (gas)
+@everywhere m_RFF = MimiGIVE.get_model(socioeconomics_source=:RFF)
 
-    m = MimiGIVE.get_model(socioeconomics_source=:RFF)
+@everywhere m_SSP2 = MimiGIVE.get_model(socioeconomics_source=:SSP)
+
+@time res = pmap((gas) for gas in [:CO2, :N2O, :CH4]) do (gas)
     
-    update_param!(m, :DamageAggregator, :include_dice2016R2, true)
+    update_param!(m_SSP2, :DamageAggregator, :include_dice2016R2, true)
 
     output_dir = "output/mcs-$gas-n$n"
     mkpath(output_dir)
 
-    results = MimiGIVE.compute_scc(m,
+    results = MimiGIVE.compute_scc(m_SSP2,
                                    n = n,
                                    year = 2020,
                                    gas = gas,
@@ -68,6 +70,11 @@ addprocs(4-nprocs())
     end
     
     ## export    
-    scghg |> save("output/sc-$gas--n$n-drop_rffsp_outliers.csv")
+    scghg |> save(joinpath(output_dir, "sc-$gas--n$n--.csv"))
+
+    #marginal damages
+    for (k,v) in results[:mds]
+        DataFrame(v, :auto) |> save(joinpath(output_dir, "mds_$gas--n$n-$(k.sector).csv"))
+    end    
 
 end
