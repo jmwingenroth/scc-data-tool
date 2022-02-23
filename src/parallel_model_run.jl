@@ -4,9 +4,9 @@ using Pkg
 Pkg.activate(".")
 Pkg.instantiate()
 
-using Distributed
+using Distributed, Hwloc
 
-addprocs(4-nprocs())
+addprocs(num_physical_cores() - nprocs())
 
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
@@ -32,14 +32,27 @@ gases = [:CO2, :CH4, :N2O];
 @everywhere m_SSP3 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP3", RCP = "RCP7.0")
 @everywhere m_SSP5 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP5", RCP = "RCP8.5")
 
+@everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
+                          (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
+                          (:Socioeconomic, :co2_emissions),         # Emissions (GtC/yr)
+                          (:Socioeconomic, :n2o_emissions),         # Emissions (GtN2O/yr)
+                          (:Socioeconomic, :ch4_emissions),         # Emissions (GtCH4/yr)
+                          (:TempNorm_1850to1900, :global_temperature_norm), # Global surface temperature anomaly (K) from preinudstrial
+                          (:global_sea_level, :sea_level_rise),     # Total sea level rise from all components (includes landwater storage for projection periods) (m)
+                          (:OceanPH, :pH),                          # Ocean pH levels
+                          (:co2_cycle, :co2),                       # Total atmospheric concentrations (ppm)
+                          (:n2o_cycle, :N₂O),                       # Total atmospheric concentrations (ppb)
+                          (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
+];
+
 # Compute SCC values
 
 @time res = pmap((gas, year, sector, socioeconomic) for gas in gases, year in years, sector in sectors, socioeconomic in socioeconomics) do (gas, year, sector, socioeconomic)
     
     println("Running socio: $socioeconomic, sector: $sector, pulse year: $year, gas: $gas")
 
-    output_dir = "output/scghg/scghg-$socioeconomic-$sector-$year-$gas-n$n"
-    mkpath(output_dir)
+    scc_dir = "output/scghg/scghg-$socioeconomic-$sector-$year-$gas-n$n"
+    mkpath(scc_dir)
 
     if socioeconomic == :RFF
         m = m_RFF
@@ -73,11 +86,21 @@ gases = [:CO2, :CH4, :N2O];
         error("Damage scheme $sector doesn't match available options: $sectors")
     end
 
+    if (gas == gases[1]) & (year == years[1]) & (sector == sectors[1])
+        save_list = other_vars
+        covar_dir = "output/covariates/covariates-$socioeconomic-n$n"
+    else
+        save_list = []
+        covar_dir = nothing
+    end
+
     results = MimiGIVE.compute_scc(m,
                                    n = n,
                                    year = year,
                                    gas = gas,
                                    discount_rates = discount_rates,
+                                   save_list = save_list,
+                                   output_dir = covar_dir,
                                    save_md = true,
                                    save_cpc = true,
                                    compute_sectoral_values = true,
@@ -94,26 +117,11 @@ gases = [:CO2, :CH4, :N2O];
     end
     
     ## export    
-    scghg |> save(joinpath(output_dir, "sc-$gas-n$n.csv"))
+    scghg |> save(joinpath(scc_dir, "sc-$gas-n$n.csv"))
 
     #marginal damages
     for (k,v) in results[:mds]
-        DataFrame(v, :auto) |> save(joinpath(output_dir, "mds_$gas--n$n-$(k.sector).csv"))
+        DataFrame(v, :auto) |> save(joinpath(scc_dir, "mds_$gas--n$n-$(k.sector).csv"))
     end    
 
 end
-
-# Set up for Monte Carlo run for covariates
-
-@everywhere save_list = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
-                         (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
-                         (:Socioeconomic, :co2_emissions),         # Emissions (GtC/yr)
-                         (:Socioeconomic, :n2o_emissions),         # Emissions (GtN2O/yr)
-                         (:Socioeconomic, :ch4_emissions),         # Emissions (GtCH4/yr)
-                         (:TempNorm_1850to1900, :global_temperature_norm), # Global surface temperature anomaly (K) from preinudstrial
-                         (:global_sea_level, :sea_level_rise),     # Total sea level rise from all components (includes landwater storage for projection periods) (m)
-                         (:OceanPH, :pH),                          # Ocean pH levels
-                         (:co2_cycle, :co2),                       # Total atmospheric concentrations (ppm)
-                         (:n2o_cycle, :N₂O),                       # Total atmospheric concentrations (ppb)
-                         (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
-]; 
