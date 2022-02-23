@@ -798,7 +798,7 @@ version = "0.1.0-DEV"
 
 [[MimiRFFSPs]]
 deps = ["Arrow", "CSVFiles", "CategoricalArrays", "DataDeps", "DataFrames", "Downloads", "Interpolations", "IteratorInterfaceExtensions", "Mimi", "Missings", "Query", "Tables"]
-git-tree-sha1 = "a6447f79fb3e1265c0f7996ff1997bebfdc18120"
+git-tree-sha1 = "cc434d4ffa491bb4899582069ce4a822b2245801"
 repo-rev = "master"
 repo-url = "https://github.com/rffscghg/MimiRFFSPs.jl.git"
 uuid = "2561df7e-f865-450a-9449-e82e8f8f9a2f"
