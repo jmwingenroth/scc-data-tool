@@ -75,6 +75,7 @@ gases = [:CO2, :CH4, :N2O];
         update_param!(m, :DamageAggregator, :include_energy,            true)
         update_param!(m, :DamageAggregator, :include_dice2016R2,        true)
         update_param!(m, :DamageAggregator, :include_hs_damage,         false)
+        compute_sectoral_values = true
     elseif sector == :h_and_s
         update_param!(m, :DamageAggregator, :include_cromar_mortality,  false)
         update_param!(m, :DamageAggregator, :include_ag,                false)
@@ -82,6 +83,7 @@ gases = [:CO2, :CH4, :N2O];
         update_param!(m, :DamageAggregator, :include_energy,            false)
         update_param!(m, :DamageAggregator, :include_dice2016R2,        false)
         update_param!(m, :DamageAggregator, :include_hs_damage,         true)
+        compute_sectoral_values = false
     else
         error("Damage scheme $sector doesn't match available options: $sectors")
     end
@@ -103,14 +105,16 @@ gases = [:CO2, :CH4, :N2O];
                                    output_dir = covar_dir,
                                    save_md = true,
                                    save_cpc = true,
-                                   compute_sectoral_values = true,
+                                   compute_sectoral_values = compute_sectoral_values,
                                    certainty_equivalent = true)
 
     ## blank data
     scghg = DataFrame(sector=Symbol[], discount_rate=String[], scghg=Float64[])
-    
+    ce_scghg = DataFrame(sector=Symbol[], discount_rate=String[], ce_scghg=Float64[])
+
     ## populate data
     for (k,v) in results[:scc]
+        push!(ce_scghg, (sector=k.sector, discount_rate=k.dr_label, ce_scghg=results[:scc][k].ce_scc))
         for sc in results[:scc][k].sccs
             push!(scghg, (sector=k.sector, discount_rate=k.dr_label, scghg=sc))
         end
@@ -118,6 +122,7 @@ gases = [:CO2, :CH4, :N2O];
     
     ## export    
     scghg |> save(joinpath(scc_dir, "sc-$gas-n$n.csv"))
+    ce_scghg |> save(joinpath(scc_dir, "cert-equiv-sc-$gas-n$n.csv"))
 
     #marginal damages
     for (k,v) in results[:mds]
