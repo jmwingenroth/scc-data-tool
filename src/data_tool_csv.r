@@ -112,25 +112,23 @@ dam_files <- list(list_files_damages("mds_CO2"),
 
 # Read data (read_csv was slow)
 dam_data <- list()
-for(i in 1:length(dam_files)) dam_data[[i]] <- lapply(dam_files[[i]], fread)
+for(i in 1:length(dam_files)) {
+  dam_data[[i]] <- lapply(dam_files[[i]], fread)
+  names(dam_data[[i]]) <- dam_files[[i]]
+}
 
-# Take quantiles
+# Tidy data
 dam_tidy <- list()
 for(i in 1:length(dam_data)) {
-
   dam_tidy[[i]] <- lapply(dam_data[[i]], function(x) {
     y <- tibble(x)[,seq(1, 81, by = 10)]
     colnames(y) <- seq(2020, 2100, by = 10)
     y %>%
+      mutate(trialnum = row_number()) %>%
       pivot_longer(`2020`:`2100`, names_to = "YEA") %>%
-      group_by(YEA) %>%
-      summarise(across(value, .fns = list(bot = ~ quantile(.x, .025)*inflate_05_to_20,
-                                      mid = ~ median(.x)*inflate_05_to_20,
-                                      top = ~ quantile(.x, .975)*inflate_05_to_20)))
+      mutate(YEA = as.numeric(YEA))
   })
-  
   names(dam_tidy[[i]]) <- dam_files[[i]]
-
 }
 
 # Extract different damage functions 
@@ -139,6 +137,39 @@ H_S_damages <- lapply(dam_tidy, function(x) {
   x[str_detect(names(x), "h_and_s.*total")]
 })
 
+sectoral_damages <- lapply(dam_tidy, function(x) {
+  x[!str_detect(names(x), "h_and_s") & !str_detect(names(x), "total")]
+})
+
+DICE_plus_sectoral <- lapply(dam_tidy, function(x) {
+  x[str_detect(names(x), "sectoral.*total")]
+})
+
+# Aggregate sectoral damages
+agg_sectoral <- list()
+for (i in 1:length(sectoral_damages)) {
+  agg_sectoral[[i]] <- list()
+  sectoral_damages[[i]] <- lapply(sectoral_damages[[i]], function(x) as.matrix(x))
+  n <- length(sectoral_damages[[i]])/length(scenarios)
+  for (j in 1:length(scenarios)) {
+    agg_sectoral[[i]][[j]] <- Reduce('+', sectoral_damages[[i]][(n*(j-1) + 1):(n*j)])
+    agg_sectoral[[i]][[j]][,"YEA"] <- agg_sectoral[[i]][[j]][,"YEA"]/n 
+    agg_sectoral[[i]][[j]][,"trialnum"] <- agg_sectoral[[i]][[j]][,"YEA"]/n 
+  }
+  names(agg_sectoral[[i]]) <- scenarios
+}
+
+# Subtract sectoral damages from DICE+sectoral
+
+agg_sectoral[[1]]
+DICE_plus_sectoral[[1]]
+
+# Take quantiles
+
+      # group_by(YEA) %>%
+      # summarise(across(value, .fns = list(bot = ~ quantile(.x, .025)*inflate_05_to_20,
+      #                                 mid = ~ median(.x)*inflate_05_to_20,
+      #                                 top = ~ quantile(.x, .975)*inflate_05_to_20)))
 
 
 # INDEXING COLUMNS--------------------------------------------------------------
