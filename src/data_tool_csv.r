@@ -3,6 +3,91 @@
 
 library(tidyverse)
 
+### Handy Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+bracket_3 <- function(a,b,c) {
+  paste0("[",round(a,4),",",round(b,4),",",round(c,4),"]")
+}
+
+### Parameters~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+n_bins <- 20
+
+scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5")
+
+years <- seq(2020, 2100, by = 10)
+
+limits <- list(POP = c(0,     15000),
+               GDP = c(-.02,  .05),
+               EMI = c(0,     75),
+               NOE = c(0,     60),
+               MEM = c(0,     1500),
+               TEM = c(0,     6),
+               SEA = c(0,     200),
+               OPH = c(7.6,   8.2),
+               CON = c(0,     1000),
+               NOC = c(0,     1000),
+               MEC = c(0,     3000),
+               DAC = c(-5,    20),
+               DAN = c(-50,   300),
+               DAM = c(-5,    30),
+               CO2 = c(0,     1000),
+               N20 = c(0,     1e5),
+               CH4 = c(0,     1e4))
+
+bins <- lapply(limits, function(x) {
+  seq(x[1], x[2], by = (x[2] - x[1]) / (2*n_bins))[seq(2, 2*n_bins, by = 2)]
+})
+
+### Socioeconomic and Physical Variables~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+covar_files <- list.files(path = "output/covariates",
+           recursive = TRUE,
+           full.names = TRUE) %>%
+  .[str_detect(., "model_1")]
+
+file_key <- c("MEC", "CON", "SEA", "NOC", "OPH", 
+              "GDP", "MEM", "EMI", "NOE", "POP", 
+              "TEM") %>%
+              expand_grid(XSC = scenarios, var = .) 
+
+covar_data <- lapply(covar_files, read_csv) %>%
+  lapply(function(x) filter(x, time %in% years))
+
+# Reformat YPC data to growth rate
+gdp_idx <- which(str_detect(covar_files, "global_pc_gdp"))
+covar_data[gdp_idx] <- covar_data[gdp_idx] %>% 
+  lapply(function(x) {
+    x %>%
+      group_by(trialnum) %>%
+      mutate(global_pc_gdp = (global_pc_gdp / first(global_pc_gdp))^(1/(time-first(time))) - 1)
+  })
+
+# Format Data Correctly
+covar_tidy <- lapply(covar_data, function(x) {
+  x %>%
+    group_by(time) %>%
+    summarise(across(1, .fns = list(bot = ~ quantile(.x, .025),
+                                    mid = ~ median(.x),
+                                    top = ~ quantile(.x, .975)))) %>%
+    rename(YEA = time, v1 = 2, v2 = 3, v3 = 4) %>%
+    transmute(YEA, var = bracket_3(v1, v2, v3))
+}) 
+
+for (i in 1:length(covar_tidy)) {
+  colnames(covar_tidy[[i]]) <- c("YEA", file_key$var[i])
+  covar_tidy[[i]]$XSC <- file_key$XSC[i]
+}
+
+# Pivot wider
+covar_final <- bind_rows(covar_tidy) %>%
+  select(XSC, YEA, everything()) %>%
+  group_by(XSC, YEA) %>%
+  summarise(across(MEC:TEM, .fns = ~max(.x, na.rm = TRUE))) %>%
+  select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC)
+
+View(covar_final)
+
 # INDEXING COLUMNS--------------------------------------------------------------
 
 specs <- list(
