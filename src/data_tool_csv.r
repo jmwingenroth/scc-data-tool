@@ -2,6 +2,7 @@
 # 11/15/2021
 
 library(tidyverse)
+library(data.table)
 
 ### Handy Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -41,6 +42,7 @@ bins <- lapply(limits, function(x) {
 
 ### Socioeconomic and Physical Variables~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# List files
 covar_files <- list.files(path = "output/covariates",
            recursive = TRUE,
            full.names = TRUE) %>%
@@ -51,6 +53,7 @@ file_key <- c("MEC", "CON", "SEA", "NOC", "OPH",
               "TEM") %>%
               expand_grid(XSC = scenarios, var = .) 
 
+# Read data
 covar_data <- lapply(covar_files, read_csv) %>%
   lapply(function(x) filter(x, time %in% years))
 
@@ -63,7 +66,7 @@ covar_data[gdp_idx] <- covar_data[gdp_idx] %>%
       mutate(global_pc_gdp = (global_pc_gdp / first(global_pc_gdp))^(1/(time-first(time))) - 1)
   })
 
-# Format Data Correctly
+# Take quantiles and format
 covar_tidy <- lapply(covar_data, function(x) {
   x %>%
     group_by(time) %>%
@@ -72,7 +75,7 @@ covar_tidy <- lapply(covar_data, function(x) {
                                     top = ~ quantile(.x, .975)))) %>%
     rename(YEA = time, v1 = 2, v2 = 3, v3 = 4) %>%
     transmute(YEA, var = bracket_3(v1, v2, v3))
-}) 
+})
 
 for (i in 1:length(covar_tidy)) {
   colnames(covar_tidy[[i]]) <- c("YEA", file_key$var[i])
@@ -86,7 +89,43 @@ covar_final <- bind_rows(covar_tidy) %>%
   summarise(across(MEC:TEM, .fns = ~max(.x, na.rm = TRUE))) %>%
   select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC)
 
-View(covar_final)
+### Undiscounted Damages~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+columns <- c("DAC", "DAN", "DAM")
+
+# List files (only from 2020 runs)
+list_files_damages <- function(pattern) {
+  list.files(path = "output/scghg",
+             pattern = pattern,
+             recursive = TRUE,
+             full.names = TRUE,)
+}
+
+dam_files <- list(list_files_damages("mds_CO2"),
+                  list_files_damages("mds_N2O"),
+                  list_files_damages("mds_CH4")) %>%
+                lapply(., function(x) x[str_detect(x, "2020")])
+
+# Read data (read_csv was slow)
+dam_data <- list()
+for(i in 1:length(dam_files)) dam_data[[i]] <- lapply(dam_files[[i]], fread)
+
+# Take quantiles
+dam_tidy <- list()
+for(i in 1:length(dam_data)) dam_tidy[[i]] <- lapply(dam_data[[i]], function(x) {
+  
+  y <- tibble(x)[,seq(1, 81, by = 10)]
+  colnames(y) <- seq(2020, 2100, by = 10)
+  y %>%
+    pivot_longer(`2020`:`2100`, names_to = "YEA") %>%
+    group_by(YEA) %>%
+    summarise(across(value, .fns = list(bot = ~ quantile(.x, .025),
+                                    mid = ~ median(.x),
+                                    top = ~ quantile(.x, .975))))
+
+})
+
+
 
 # INDEXING COLUMNS--------------------------------------------------------------
 
