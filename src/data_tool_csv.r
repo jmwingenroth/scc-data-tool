@@ -12,6 +12,10 @@ bracket_3 <- function(a,b,c) {
 
 ### Parameters~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Inflation adjustment from https://github.com/anthofflab/paper-scc-give/blob/main/src/price_level_inflator.jl, accessed 02/28/2022:
+  # (10/25/2021) BEA Table 1.1.9, line 1 GDP annual values as linked here: https://apps.bea.gov/iTable/iTable.cfm?reqid=19&step=3&isuri=1&select_all_years=0&nipa_table_list=13&series=a&first_year=2005&last_year=2020&scale=-99&categories=survey&thetable=
+inflate_05_to_20 = 113.648 / 87.504
+
 n_bins <- 20
 
 scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5")
@@ -112,17 +116,27 @@ for(i in 1:length(dam_files)) dam_data[[i]] <- lapply(dam_files[[i]], fread)
 
 # Take quantiles
 dam_tidy <- list()
-for(i in 1:length(dam_data)) dam_tidy[[i]] <- lapply(dam_data[[i]], function(x) {
-  
-  y <- tibble(x)[,seq(1, 81, by = 10)]
-  colnames(y) <- seq(2020, 2100, by = 10)
-  y %>%
-    pivot_longer(`2020`:`2100`, names_to = "YEA") %>%
-    group_by(YEA) %>%
-    summarise(across(value, .fns = list(bot = ~ quantile(.x, .025),
-                                    mid = ~ median(.x),
-                                    top = ~ quantile(.x, .975))))
+for(i in 1:length(dam_data)) {
 
+  dam_tidy[[i]] <- lapply(dam_data[[i]], function(x) {
+    y <- tibble(x)[,seq(1, 81, by = 10)]
+    colnames(y) <- seq(2020, 2100, by = 10)
+    y %>%
+      pivot_longer(`2020`:`2100`, names_to = "YEA") %>%
+      group_by(YEA) %>%
+      summarise(across(value, .fns = list(bot = ~ quantile(.x, .025)*inflate_05_to_20,
+                                      mid = ~ median(.x)*inflate_05_to_20,
+                                      top = ~ quantile(.x, .975)*inflate_05_to_20)))
+  })
+  
+  names(dam_tidy[[i]]) <- dam_files[[i]]
+
+}
+
+# Extract different damage functions 
+# (DICE was combined with sectoral for computational efficiency)
+H_S_damages <- lapply(dam_tidy, function(x) {
+  x[str_detect(names(x), "h_and_s.*total")]
 })
 
 
