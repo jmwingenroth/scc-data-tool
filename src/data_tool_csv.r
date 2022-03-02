@@ -14,6 +14,8 @@ n_bins <- 20
 
 scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5")
 
+gases <- c("CH4", "CO2", "N2O")
+
 years <- seq(2020, 2100, by = 10)
 
 limits <- list(POP = c(0,     15000),
@@ -44,6 +46,31 @@ bracket_3 <- function(a,b,c) {
   paste0("[",round(a,4),",",round(b,4),",",round(c,4),"]")
 }
 
+bracket_4 <- function(a,b,c,d) {
+  paste0("[",round(a,4),",",round(b,4),",",round(c,4),",",round(d,4),"]")
+}
+
+SCC_format <- function(X = bracket_4(0,0,0), XHE = 0, XAG = 0, XEN = 0, XCI = 0, XOT = 0) {
+
+  paste0('{"X":',X,
+         ',"XHE":',round(XHE,4),
+         ',"XAG":',round(XAG,4),
+         ',"XEN":',round(XEN,4),
+         ',"XCI":',round(XCI,4),
+         ',"XOT":',round(XOT,4),
+         '}')
+
+}
+
+write_csv(tibble(SCC_format()), "test.csv", quote = "none", escape = "none")
+
+list_files_scghg <- function(pattern) {
+  list.files(path = "output/scghg",
+             pattern = pattern,
+             recursive = TRUE,
+             full.names = TRUE,)
+}
+
 ### Socioeconomic and Physical Variables~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # List files
@@ -55,10 +82,10 @@ covar_files <- list.files(path = "output/covariates",
 file_key <- c("MEC", "CON", "SEA", "NOC", "OPH", 
               "GDP", "MEM", "EMI", "NOE", "POP", 
               "TEM") %>%
-              expand_grid(XSC = scenarios, var = .) 
+  expand_grid(XSC = scenarios, var = .) 
 
 # Read data
-covar_data <- lapply(covar_files, read_csv) %>%
+covar_data <- lapply(covar_files, read_csv, show_col_types = FALSE) %>%
   lapply(function(x) filter(x, time %in% years))
 
 # Reformat YPC data to growth rate
@@ -99,17 +126,10 @@ covar_final <- bind_rows(covar_tidy) %>%
 columns <- c("DAC", "DAN", "DAM")
 
 # List files (only from 2020 runs)
-list_files_damages <- function(pattern) {
-  list.files(path = "output/scghg",
-             pattern = pattern,
-             recursive = TRUE,
-             full.names = TRUE,)
-}
-
-dam_files <- list(list_files_damages("mds_CO2"),
-                  list_files_damages("mds_N2O"),
-                  list_files_damages("mds_CH4")) %>%
-                lapply(., function(x) x[str_detect(x, "2020")])
+dam_files <- list(list_files_scghg("mds_CO2"),
+                  list_files_scghg("mds_N2O"),
+                  list_files_scghg("mds_CH4")) %>%
+  lapply(., function(x) x[str_detect(x, "2020")])
 
 # Read data (read_csv was slow)
 dam_data <- list()
@@ -187,8 +207,8 @@ quantiles_damages <- function(x, name) {
   x %>%
     group_by(YEA) %>%
     summarise(across(value, .fns = list(bot = ~ quantile(.x, .025),
-                                    mid = ~ median(.x),
-                                    top = ~ quantile(.x, .975)))) %>%
+                                        mid = ~ median(.x),
+                                        top = ~ quantile(.x, .975)))) %>%
     mutate(bracket = bracket_3(value_bot, value_mid, value_top)) %>%
     select(YEA, !!quo_name(name) := bracket)
 }
@@ -202,21 +222,21 @@ for (i in 1:length(agg_sectoral)) {
   q_agg_sectoral[[i]] <- lapply(agg_sectoral[[i]], 
                                 quantiles_damages,
                                 name = columns[i]) %>%
-                         bind_rows()
+    bind_rows()
   q_agg_sectoral[[i]]$XSC <- rep(scenarios, each = length(years))
   q_agg_sectoral[[i]]$XAD <- "None"
 
   q_DICE_damages[[i]] <- lapply(DICE_damages[[i]], 
                                 quantiles_damages,
                                 name = columns[i]) %>%
-                         bind_rows()
+    bind_rows()
   q_DICE_damages[[i]]$XSC <- rep(scenarios, each = length(years))
   q_DICE_damages[[i]]$XAD <- "DICE"
 
   q_H_S_damages[[i]] <- lapply(H_S_damages[[i]], 
                                 quantiles_damages,
                                 name = columns[i]) %>%
-                         bind_rows()
+    bind_rows()
   q_H_S_damages[[i]]$XSC <- rep(scenarios, each = length(years))
   q_H_S_damages[[i]]$XAD <- "Howard & Sterner"
 
@@ -230,9 +250,105 @@ damages_final <- damages_tidy[[1]] %>%
   left_join(damages_tidy[[3]])
 
 ### SCGHG~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Still need to add processing code for certainty-equivalent SCGHG
 
-# Remember certainty-equivalent
-# Remember to correct for 2005-2020 inflation
+# List files
+scghg_files <- list_files_scghg("sc-")
+
+# Read data and adjust for inflation
+scghg_data <- lapply(scghg_files, read_csv, show_col_types = FALSE) %>%
+  lapply(., mutate, scghg = scghg*inflate_05_to_20, 
+                    discount_rate = str_replace(discount_rate, "CDR", "constant"))
+
+# Extract H&S, sectoral, and DICE data
+H_S_idx <- which(str_detect(scghg_files, "h_and_s"))
+sec_dice_idx <- which(str_detect(scghg_files, "sectoral_and_dice"))
+
+H_S_scghg <- scghg_data[H_S_idx] %>% 
+  lapply(., filter, sector == "total")
+
+sectoral_scghg <- scghg_data[sec_dice_idx] %>% 
+  lapply(., filter, sector != "total")
+
+DICE_scghg <- scghg_data[sec_dice_idx] %>% 
+  lapply(., group_by, sector, discount_rate) %>%
+  lapply(., mutate, trialnum = row_number()) %>%
+  lapply(., pivot_wider, names_from = sector, values_from = scghg) %>%
+  lapply(., transmute, sector = "total", 
+                       discount_rate, 
+                       scghg = total - slr - agriculture - energy - cromar_mortality)
+
+# Take quantiles and reformat
+q_H_S_scghg <-  list()
+q_sectoral_scghg <- list()
+q_DICE_scghg <- list()
+for (i in 1:length(H_S_scghg)) {
+
+  q_H_S_scghg[[i]] <- H_S_scghg[[i]] %>%
+    group_by(discount_rate) %>%
+    summarise(across(scghg, .fns = list(bot = ~ quantile(.x, .025),
+                                        mid = ~ mean(.x),
+                                        top = ~ quantile(.x, .975)))) %>%
+    transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(H_S_scghg))],
+              XAD = "Howard & Sterner", 
+              XDR = discount_rate,
+              YEA = years[(ceiling(i/3) - 1) %% length(years) + 1],
+              gas = gases[(i - 1)%%3 + 1],
+              value = SCC_format(bracket_4(scghg_bot, 
+                                           scghg_mid, 
+                                           scghg_top, 
+                                           scghg_mid*.96))) # placeholder 
+
+  q_DICE_scghg[[i]] <- DICE_scghg[[i]] %>%
+    group_by(discount_rate) %>%
+    summarise(across(scghg, .fns = list(bot = ~ quantile(.x, .025),
+                                        mid = ~ mean(.x),
+                                        top = ~ quantile(.x, .975)))) %>%
+    transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(DICE_scghg))],
+              XAD = "DICE", 
+              XDR = discount_rate,
+              YEA = years[(ceiling(i/3) - 1) %% length(years) + 1],
+              gas = gases[(i - 1)%%3 + 1],
+              value = SCC_format(bracket_4(scghg_bot, 
+                                           scghg_mid, 
+                                           scghg_top, 
+                                           scghg_mid*.96))) # placeholder 
+
+  q_sectoral_scghg[[i]] <- sectoral_scghg[[i]] %>%
+    group_by(sector, discount_rate) %>%
+    summarise(across(scghg, .fns = list(bot = ~ quantile(.x, .025),
+                                        mid = ~ mean(.x),
+                                        top = ~ quantile(.x, .975))), 
+              .groups = "drop") %>%
+    group_by(discount_rate) %>%
+    mutate(across(scghg_bot:scghg_top, .fns = list(sum = ~ sum(.x)))) %>%
+    select(-scghg_bot, -scghg_top) %>%
+    pivot_wider(names_from = sector, values_from = scghg_mid) %>%
+    ungroup() %>%
+    transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(sectoral_scghg))],
+              XAD = "None", 
+              XDR = discount_rate,
+              YEA = years[(ceiling(i/3) - 1) %% length(years) + 1],
+              gas = gases[(i - 1)%%3 + 1],
+              value = SCC_format(bracket_4(scghg_bot_sum, 
+                                           scghg_mid_sum, 
+                                           scghg_top_sum, 
+                                           scghg_mid_sum*.96), # placeholder
+                                   XAG = agriculture,
+                                   XHE = cromar_mortality,
+                                   XEN = energy,
+                                   XCI = slr))
+                                                                             
+}
+
+scghg_final <- lapply(list(q_H_S_scghg, q_DICE_scghg, q_sectoral_scghg), function(x) {
+
+  x %>%
+    bind_rows() %>%
+    pivot_wider(names_from = gas, values_from = value)
+
+}) %>%
+  bind_rows()
 
 ### Histogram~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -261,3 +377,6 @@ csv <- expand.grid(specs) %>%
            (XHE=='None' & XAG=='None' & XEN=='None' & XAD=='DICE')) %>%
   arrange(XSC,XHE,XDR,YEA)
 
+### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+write_csv(tibble(SCC_format()), "test.csv", quote = "none", escape = "none")
