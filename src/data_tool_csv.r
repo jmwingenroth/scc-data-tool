@@ -350,32 +350,28 @@ scghg_final <- lapply(list(q_H_S_scghg, q_DICE_scghg, q_sectoral_scghg), functio
 }) %>%
   bind_rows()
 
-### Histogram~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# Use covar_data, agg_sectoral, DICE_damages, H_S_damages, ...
-
 ### Combine and add indexing columns~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-specs <- list(
-  XSC = c('RFF', 'SSP'),
-  XTE = 'FAIR',
-  XSL = 'BRICK',
-  XPH = 'Fung',
-  XHE = c('Cromar', 'None'),
-  XAG = c('Moore', 'None'),
-  XEN = c('Clarke', 'None'),
-  XCI = 'None',
-  XOT = 'None',
-  XAD = c('DICE','None'),
-  XDR = c('2% constant', '3% constant', '2% Ramsey', '3% Ramsey'),
-  YEA = c(2020, 2022, seq(2030,2100,by=10))
-)
+all_but_PRO <- right_join(covar_final, damages_final) %>%
+  right_join(scghg_final) %>%
+  mutate(XTE = "FAIR", XSL = "BRICK", XPH = "Fung", XOT = "None",
+         XHE = if_else(XAD == "None", "Cromar", "None"),
+         XAG = if_else(XAD == "None", "Moore", "None"),
+         XEN = if_else(XAD == "None", "Clarke", "None"),
+         XCI = if_else(XAD == "None", "Diaz", "None")) %>%
+  select(XSC, XTE, XSL, XPH, XHE, XAG, XEN, XCI, XOT, XAD, XDR, YEA, 
+         POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, 
+         DAC, DAN, DAM, CO2, N2O, CH4) %>%
+  arrange(XSC, desc(XAD), XDR, YEA)
 
-csv <- expand.grid(specs) %>%
-  tibble %>%
-  filter((XHE=='Cromar' & XAG=='Moore' & XEN=='Clarke' & XAD=='None') | 
-           (XHE=='None' & XAG=='None' & XEN=='None' & XAD=='DICE')) %>%
-  arrange(XSC,XHE,XDR,YEA)
+### Histogram~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Covariates
+
+covar_data[[1]]
+bins[1]
+covar_data
+# Use covar_data, agg_sectoral, DICE_damages, H_S_damages, ...
 
 ### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
