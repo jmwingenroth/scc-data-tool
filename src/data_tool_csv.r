@@ -12,7 +12,7 @@ inflate_05_to_20 = 113.648 / 87.504
 
 n_bins <- 20
 
-scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5")
+scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5") # alphabetical order
 
 gases <- c("CH4", "CO2", "N2O")
 
@@ -36,8 +36,8 @@ limits <- list(POP = c(0,     15000),
                N20 = c(0,     1e5),
                CH4 = c(0,     1e4))
 
-bins <- lapply(limits, function(x) {
-  seq(x[1], x[2], by = (x[2] - x[1]) / (2*n_bins))[seq(2, 2*n_bins, by = 2)]
+breaks <- lapply(limits, function(x) {
+  seq(x[1], x[2], length.out = 21)[-c(1,21)]
 })
 
 ### Handy Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,15 +88,40 @@ file_key <- c("MEC", "CON", "SEA", "NOC", "OPH",
 covar_data <- lapply(covar_files, read_csv, show_col_types = FALSE) %>%
   lapply(function(x) filter(x, time %in% years))
 
+for (i in 1:length(covar_data)) names(covar_data[[i]])[2] <- file_key$var[i]
+
 # Reformat YPC data to growth rate
 gdp_idx <- which(str_detect(covar_files, "global_pc_gdp"))
 covar_data[gdp_idx] <- covar_data[gdp_idx] %>% 
   lapply(function(x) {
     x %>%
       group_by(trialnum) %>%
-      rename(ypc = global_pc_gdp) %>%
-      mutate(ypc = (ypc/first(ypc)) ^ (1/(time-first(time))) - 1)
+      mutate(GDP = (GDP/first(GDP)) ^ (1/(time-first(time))) - 1)
   })
+
+# Transform to histogram format
+temp_breaks <- breaks[[which(names(breaks)==names(covar_data[[1]])[2])]]
+temp_limits <- limits[[which(names(limits)==names(covar_data[[1]])[2])]]
+
+test <- covar_data[[1]] %>%
+  mutate(across(2, ~ cut(.x, breaks = c(-Inf,
+                                        temp_breaks,
+                                        Inf), 
+                             labels = c(temp_limits[1], 
+                                        temp_breaks + (temp_limits[2] - temp_limits[1])/40)))) %>%
+  group_by(time, MEC) %>%
+  tally() %>%
+  arrange(time, MEC) %>%
+  mutate(str = paste0('["',MEC,'","',n,'"]')) %>%
+  summarise(PRO = paste0(str, collapse = ",")) %>%
+  ungroup() %>%
+  mutate(YEA = time) %>%
+  select(YEA, PRO) %>%
+  mutate(PRO = paste0('"',names(covar_data[[1]])[2],'":[',PRO,']'))
+
+test
+
+# order for PRO column: CO2, N2O, CH4, all other vars
 
 # Take quantiles and format
 covar_tidy <- lapply(covar_data, function(x) {
@@ -368,11 +393,11 @@ all_but_PRO <- right_join(covar_final, damages_final) %>%
 
 # Covariates
 
-covar_data[[1]]
+lapply(covar_data, function(x) names(x)[2])
 bins[1]
 covar_data
 # Use covar_data, agg_sectoral, DICE_damages, H_S_damages, ...
 
 ### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-write_csv(tibble(SCC_format()), "test.csv", quote = "none", escape = "none")
+write_csv(all_but_PRO, "test.csv", quote = "none", escape = "none")
