@@ -18,23 +18,23 @@ gases <- c("CH4", "CO2", "N2O")
 
 years <- seq(2020, 2100, by = 10)
 
-limits <- list(POP = c(0,     15000),
-               GDP = c(-.02,  .05),
-               EMI = c(0,     75),
-               NOE = c(0,     60),
-               MEM = c(0,     1500),
-               TEM = c(0,     6),
-               SEA = c(0,     200),
-               OPH = c(7.6,   8.2),
-               CON = c(0,     1000),
-               NOC = c(0,     1000),
-               MEC = c(0,     3000),
-               DAC = c(-5,    20),
-               DAN = c(-50,   300),
-               DAM = c(-5,    30),
-               CO2 = c(0,     1000),
-               N20 = c(0,     1e5),
-               CH4 = c(0,     1e4))
+limits <- list(POP = c(0,     15000),   # Millions
+               GDP = c(-.02,  .05),     # Growth rate
+               EMI = c(0,     75),      # Gt CO2
+               NOE = c(0,     60),      # Mt N2O
+               MEM = c(0,     1500),    # Mt CH4
+               TEM = c(0,     6),       # Anomaly (K)
+               SEA = c(0,     200),     # cm
+               OPH = c(7.6,   8.2),     # pH (no units)
+               CON = c(0,     1000),    # ppm
+               NOC = c(0,     1000),    # ppb
+               MEC = c(0,     3000),    # ppb
+               DAC = c(-5,    20),      # 2020 USD
+               DAN = c(-50,   300),     # 2020 USD
+               DAM = c(-5,    30),      # 2020 USD
+               CO2 = c(0,     1000),    # 2020 USD
+               N20 = c(0,     1e5),     # 2020 USD
+               CH4 = c(0,     1e4))     # 2020 USD
 
 breaks <- lapply(limits, function(x) {
   seq(x[1], x[2], length.out = 21)[-c(1,21)]
@@ -50,7 +50,12 @@ bracket_4 <- function(a,b,c,d) {
   paste0("[",round(a,4),",",round(b,4),",",round(c,4),",",round(d,4),"]")
 }
 
-SCC_format <- function(X = bracket_4(0,0,0), XHE = 0, XAG = 0, XEN = 0, XCI = 0, XOT = 0) {
+SCC_format <- function(X = bracket_4(0,0,0,0), 
+                       XHE = 0, 
+                       XAG = 0, 
+                       XEN = 0, 
+                       XCI = 0, 
+                       XOT = 0) {
 
   paste0('{"X":',X,
          ',"XHE":',round(XHE,4),
@@ -61,8 +66,6 @@ SCC_format <- function(X = bracket_4(0,0,0), XHE = 0, XAG = 0, XEN = 0, XCI = 0,
          '}')
 
 }
-
-write_csv(tibble(SCC_format()), "test.csv", quote = "none", escape = "none")
 
 list_files_scghg <- function(pattern) {
   list.files(path = "output/scghg",
@@ -84,11 +87,18 @@ file_key <- c("MEC", "CON", "SEA", "NOC", "OPH",
               "TEM") %>%
   expand_grid(XSC = scenarios, var = .) 
 
-# Read data
+file_key$conversions <- rep(c(1, 1, 100, 1, 1,
+                              1, 1, 44/12, 1, 1, # GDP (YPC) growth rate is unitless
+                              1), length(scenarios))
+
+# Read, rename, and convert units of data
 covar_data <- lapply(covar_files, read_csv, show_col_types = FALSE) %>%
   lapply(function(x) filter(x, time %in% years))
 
-for (i in 1:length(covar_data)) names(covar_data[[i]])[2] <- file_key$var[i]
+for (i in 1:length(covar_data)) {
+  names(covar_data[[i]])[2] <- file_key$var[i]
+  covar_data[[i]][,2] <- file_key$conversions[i] * covar_data[[i]][,2]
+}
 
 # Reformat YPC data to growth rate
 gdp_idx <- which(str_detect(covar_files, "global_pc_gdp"))
@@ -100,28 +110,39 @@ covar_data[gdp_idx] <- covar_data[gdp_idx] %>%
   })
 
 # Transform to histogram format
-temp_breaks <- breaks[[which(names(breaks)==names(covar_data[[1]])[2])]]
-temp_limits <- limits[[which(names(limits)==names(covar_data[[1]])[2])]]
+covar_hist <- list()
+for (i in 1:length(covar_data)) {
 
-test <- covar_data[[1]] %>%
-  mutate(across(2, ~ cut(.x, breaks = c(-Inf,
-                                        temp_breaks,
-                                        Inf), 
-                             labels = c(temp_limits[1], 
-                                        temp_breaks + (temp_limits[2] - temp_limits[1])/40)))) %>%
-  group_by(time, MEC) %>%
-  tally() %>%
-  arrange(time, MEC) %>%
-  mutate(str = paste0('["',MEC,'","',n,'"]')) %>%
-  summarise(PRO = paste0(str, collapse = ",")) %>%
-  ungroup() %>%
-  mutate(YEA = time) %>%
-  select(YEA, PRO) %>%
-  mutate(PRO = paste0('"',names(covar_data[[1]])[2],'":[',PRO,']'))
+  temp_breaks <- breaks[[which(names(breaks)==names(covar_data[[i]])[2])]]
+  temp_limits <- limits[[which(names(limits)==names(covar_data[[i]])[2])]]
 
-test
+  covar_hist[[i]] <- covar_data[[i]] %>%
+    rename(var = 2) %>%
+    mutate(across(2, ~ cut(.x, breaks = c(-Inf,
+                                          temp_breaks,
+                                          Inf), 
+                               labels = round(c(temp_limits[1], 
+                                                temp_breaks + (temp_limits[2] - temp_limits[1])/40),4)))) %>%
+    group_by(time, var) %>%
+    tally() %>%
+    arrange(time, var) %>%
+    mutate(str = paste0('["',var,'","',n,'"]')) %>%
+    summarise(PRO = paste0(str, collapse = ",")) %>%
+    ungroup() %>%
+    mutate(YEA = time) %>%
+    select(YEA, PRO) %>%
+    transmute(XSC = file_key$XSC[i], 
+              YEA, 
+              x = file_key$var[i], 
+              PRO_x = paste0('"',names(covar_data[[i]])[2],'":[',PRO,']'))
 
-# order for PRO column: CO2, N2O, CH4, all other vars
+}
+
+covar_hist_tidy <- bind_rows(covar_hist) %>% 
+  pivot_wider(names_from = x, values_from = PRO_x) %>%
+  transmute(XSC, YEA,
+            PRO_covar = paste(POP, GDP, EMI, NOE, MEM, CON, NOC, MEC, TEM, SEA, OPH,
+                              sep = ","))
 
 # Take quantiles and format
 covar_tidy <- lapply(covar_data, function(x) {
@@ -144,7 +165,8 @@ covar_final <- bind_rows(covar_tidy) %>%
   select(XSC, YEA, everything()) %>%
   group_by(XSC, YEA) %>%
   summarise(across(MEC:TEM, .fns = ~max(.x, na.rm = TRUE))) %>%
-  select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC)
+  left_join(covar_hist_tidy) %>%
+  select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, PRO_covar)
 
 ### Undiscounted Damages~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -265,7 +287,9 @@ for (i in 1:length(agg_sectoral)) {
   q_H_S_damages[[i]]$XSC <- rep(scenarios, each = length(years))
   q_H_S_damages[[i]]$XAD <- "Howard & Sterner"
 
-  damages_tidy[[i]] <- bind_rows(q_agg_sectoral[[i]], q_DICE_damages[[i]], q_H_S_damages[[i]]) %>%
+  damages_tidy[[i]] <- bind_rows(q_agg_sectoral[[i]], 
+                                 q_DICE_damages[[i]], 
+                                 q_H_S_damages[[i]]) %>%
     select(XSC, XAD, YEA, everything())
 
 }
@@ -366,7 +390,9 @@ for (i in 1:length(H_S_scghg)) {
                                                                              
 }
 
-scghg_final <- lapply(list(q_H_S_scghg, q_DICE_scghg, q_sectoral_scghg), function(x) {
+scghg_final <- lapply(list(q_H_S_scghg, 
+                           q_DICE_scghg, 
+                           q_sectoral_scghg), function(x) {
 
   x %>%
     bind_rows() %>%
