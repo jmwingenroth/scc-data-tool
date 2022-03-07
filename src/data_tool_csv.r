@@ -534,6 +534,6 @@ final <- right_join(covar_final, damages_final) %>%
 
 ### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-write_csv(final, "output/web_ready.csv", quote = "none", escape = "none")
+write_csv(final, "output/web_ready.csv")
 
 # Runs in under a minute for n=100
