@@ -384,7 +384,7 @@ damages_final <- damages_tidy[[1]] %>%
 ### SCGHG~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # List files
-scghg_files <- list_files_scghg("sc-")
+scghg_files <- list_files_scghg("^sc-")
 
 # Read data and adjust for inflation
 scghg_data <- lapply(scghg_files, read_csv, show_col_types = FALSE) %>%
