@@ -37,7 +37,7 @@ limits <- list(POP = c(0,     15000),   # Millions
                CH4 = c(0,     1e4))     # 2020 USD
 
 breaks <- lapply(limits, function(x) {
-  seq(x[1], x[2], length.out = n_bins + 1)[-c(1,21)]
+  seq(x[1], x[2], length.out = n_bins + 1)[-c(1, n_bins + 1)]
 })
 
 labels <- lapply(breaks, function(x) {
@@ -77,6 +77,70 @@ list_files_scghg <- function(pattern) {
              pattern = pattern,
              recursive = TRUE,
              full.names = TRUE,)
+}
+
+relabel_damages <- function(x, XAD_lab, i = i, j = j) {
+  x %>%
+    mutate(XSC = scenarios[j],
+           XAD = XAD_lab,
+           var = columns[i]) %>%
+    select(XSC, XAD, YEA, var, trialnum, value)
+}
+
+bin_damages <- function(x) {
+
+  x %>%
+    bind_rows() %>%
+    mutate(across(value, ~ cut(.x, 
+                               breaks = c(-Inf,
+                                          temp_breaks,
+                                          Inf), 
+                               labels = round(temp_labels,4)))) %>%
+    group_by(XSC, XAD, YEA, var, value) %>%
+    tally() %>%
+    mutate(str = paste0('["',value,'","',n,'"]')) %>%
+    summarise(PRO = paste0(str, collapse = ",")) %>%
+    ungroup() %>%
+    mutate(PRO = paste0('"',var,'":[',PRO,']'))
+
+}
+
+quantiles_damages <- function(x, name) {
+  x %>%
+    group_by(YEA) %>%
+    summarise(across(value, .fns = list(bot = ~ quantile(.x, .025),
+                                        mid = ~ median(.x),
+                                        top = ~ quantile(.x, .975)))) %>%
+    mutate(bracket = bracket_3(value_bot, value_mid, value_top)) %>%
+    select(YEA, !!quo_name(name) := bracket)
+}
+
+bin_scghg <- function(x, var, XAD_lab) {
+
+  temp_breaks <- breaks[[which(names(breaks)==var)]]
+  temp_labels <- labels[[which(names(labels)==var)]]
+  
+  x %>%
+    mutate(across(scghg, ~ cut(.x, 
+                               breaks = c(-Inf,
+                                          temp_breaks,
+                                          Inf), 
+                               labels = round(temp_labels,4)))) %>%
+    group_by(XDR, scghg) %>%
+    tally() %>%
+    mutate(str = paste0('["',scghg,'","',n,'"]')) %>%
+    summarise(PRO = paste0(str, collapse = ",")) %>%
+    ungroup() %>%
+    mutate(XAD = XAD_lab, PRO = paste0('"',var,'":[',PRO,']')) %>%
+    select(XAD, XDR, PRO)
+
+}
+
+relabel_scghg <- function(x) {
+  x %>%
+    mutate(XSC = rep(scenarios, each = length(gases)*length(years))[i],
+           YEA = rep(rep(years, each = length(gases)), length(scenarios))[i]) %>%
+    select(XSC, XAD, XDR, YEA, everything())
 }
 
 ### Socioeconomic and Physical Variables~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -247,14 +311,6 @@ for (i in 1:length(agg_sectoral)) {
 }
 
 # Label data
-relabel_damages <- function(x, XAD_lab, i = i, j = j) {
-  x %>%
-    mutate(XSC = scenarios[j],
-           XAD = XAD_lab,
-           var = columns[i]) %>%
-    select(XSC, XAD, YEA, var, trialnum, value)
-}
-
 for (i in 1:length(agg_sectoral)) {
   for (j in 1:length(agg_sectoral[[i]])) {
     agg_sectoral[[i]][[j]] <- relabel_damages(agg_sectoral[[i]][[j]],"None",i,j)
@@ -264,25 +320,6 @@ for (i in 1:length(agg_sectoral)) {
 }
 
 # Transform to histogram format
-
-bin_damages <- function(x) {
-
-  x %>%
-    bind_rows() %>%
-    mutate(across(value, ~ cut(.x, 
-                               breaks = c(-Inf,
-                                          temp_breaks,
-                                          Inf), 
-                               labels = round(temp_labels,4)))) %>%
-    group_by(XSC, XAD, YEA, var, value) %>%
-    tally() %>%
-    mutate(str = paste0('["',value,'","',n,'"]')) %>%
-    summarise(PRO = paste0(str, collapse = ",")) %>%
-    ungroup() %>%
-    mutate(PRO = paste0('"',var,'":[',PRO,']'))
-
-}
-
 agg_hist <-  list()
 DICE_hist <- list()
 H_S_hist <-  list()
@@ -304,15 +341,6 @@ damag_hist_tidy <- bind_rows(agg_hist, DICE_hist, H_S_hist) %>%
                               sep = ","))
 
 # Take quantiles and reformat
-quantiles_damages <- function(x, name) {
-  x %>%
-    group_by(YEA) %>%
-    summarise(across(value, .fns = list(bot = ~ quantile(.x, .025),
-                                        mid = ~ median(.x),
-                                        top = ~ quantile(.x, .975)))) %>%
-    mutate(bracket = bracket_3(value_bot, value_mid, value_top)) %>%
-    select(YEA, !!quo_name(name) := bracket)
-}
 
 q_agg_sectoral <- list()
 q_DICE_damages <- list()
@@ -397,34 +425,6 @@ hist_sectoral_sc <- lapply(sectoral_scghg, function(x) {
 
 hist_DICE_sc <- lapply(DICE_scghg, rename, XDR = discount_rate)
 hist_H_S_sc <- lapply(H_S_scghg, rename, XDR = discount_rate)
-
-bin_scghg <- function(x, var, XAD_lab) {
-
-  temp_breaks <- breaks[[which(names(breaks)==var)]]
-  temp_labels <- labels[[which(names(labels)==var)]]
-  
-  x %>%
-    mutate(across(scghg, ~ cut(.x, 
-                               breaks = c(-Inf,
-                                          temp_breaks,
-                                          Inf), 
-                               labels = round(temp_labels,4)))) %>%
-    group_by(XDR, scghg) %>%
-    tally() %>%
-    mutate(str = paste0('["',scghg,'","',n,'"]')) %>%
-    summarise(PRO = paste0(str, collapse = ",")) %>%
-    ungroup() %>%
-    mutate(XAD = XAD_lab, PRO = paste0('"',var,'":[',PRO,']')) %>%
-    select(XAD, XDR, PRO)
-
-}
-
-relabel_scghg <- function(x) {
-  x %>%
-    mutate(XSC = rep(scenarios, each = length(gases)*length(years))[i],
-           YEA = rep(rep(years, each = length(gases)), length(scenarios))[i]) %>%
-    select(XSC, XAD, XDR, YEA, everything())
-}
 
 for (i in 1:length(hist_sectoral_sc)) {
   gas = gases[(i-1)%%3 + 1]
