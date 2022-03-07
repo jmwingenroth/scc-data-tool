@@ -37,7 +37,12 @@ limits <- list(POP = c(0,     15000),   # Millions
                CH4 = c(0,     1e4))     # 2020 USD
 
 breaks <- lapply(limits, function(x) {
-  seq(x[1], x[2], length.out = 21)[-c(1,21)]
+  seq(x[1], x[2], length.out = n_bins + 1)[-c(1,21)]
+})
+
+labels <- lapply(breaks, function(x) {
+  half_bin_w <- (x[2] - x[1])/2
+  seq(x[1] - half_bin_w, x[n_bins-1] + half_bin_w, length.out = n_bins)
 })
 
 ### Handy Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,14 +120,14 @@ for (i in 1:length(covar_data)) {
 
   temp_breaks <- breaks[[which(names(breaks)==names(covar_data[[i]])[2])]]
   temp_limits <- limits[[which(names(limits)==names(covar_data[[i]])[2])]]
+  temp_labels <- labels[[which(names(labels)==names(covar_data[[i]])[2])]]
 
   covar_hist[[i]] <- covar_data[[i]] %>%
     rename(var = 2) %>%
     mutate(across(2, ~ cut(.x, breaks = c(-Inf,
                                           temp_breaks,
                                           Inf), 
-                               labels = round(c(temp_limits[1], 
-                                                temp_breaks + (temp_limits[2] - temp_limits[1])/40),4)))) %>%
+                               labels = round(temp_labels,4)))) %>%
     group_by(time, var) %>%
     tally() %>%
     arrange(time, var) %>%
@@ -242,14 +247,65 @@ for (i in 1:length(agg_sectoral)) {
   }
 }
 
-# Fix names
-for (i in 1:length(agg_sectoral)) {
-  names(agg_sectoral[[i]]) <- scenarios
-  names(DICE_damages[[i]]) <- scenarios
-  names(H_S_damages[[i]]) <- scenarios
+# Label data
+relabel_damages <- function(x, XAD_lab, i = i, j = j) {
+  x %>%
+    mutate(XSC = scenarios[j],
+           XAD = XAD_lab,
+           var = columns[i]) %>%
+    select(XSC, XAD, YEA, var, trialnum, value)
 }
 
-# Take quantiles (keep data for histogram) and reformat
+for (i in 1:length(agg_sectoral)) {
+  for (j in 1:length(agg_sectoral[[i]])) {
+    agg_sectoral[[i]][[j]] <- relabel_damages(agg_sectoral[[i]][[j]],"None",i,j)
+    DICE_damages[[i]][[j]] <- relabel_damages(DICE_damages[[i]][[j]],"DICE",i,j)
+    H_S_damages[[i]][[j]]  <- relabel_damages(H_S_damages[[i]][[j]], "Howard & Sterner",i,j)
+  }
+}
+
+# Transform to histogram format
+
+bin_damages <- function(x) {
+
+  x %>%
+    bind_rows() %>%
+    mutate(across(value, ~ cut(.x, 
+                               breaks = c(-Inf,
+                                          temp_breaks,
+                                          Inf), 
+                               labels = round(temp_labels,4)))) %>%
+    group_by(XSC, XAD, YEA, var, value) %>%
+    tally() %>%
+    mutate(str = paste0('["',value,'","',n,'"]')) %>%
+    summarise(PRO = paste0(str, collapse = ",")) %>%
+    ungroup() %>%
+    mutate(PRO = paste0('"',var,'":[',PRO,']'))
+
+}
+
+agg_hist <-  list()
+DICE_hist <- list()
+H_S_hist <-  list()
+for (i in 1:length(agg_sectoral)) {
+
+  temp_breaks <- breaks[[which(names(breaks)==columns[i])]]
+  temp_limits <- limits[[which(names(limits)==columns[i])]]
+  temp_labels <- labels[[which(names(labels)==columns[i])]]
+
+  agg_hist[[i]] <-  bin_damages(agg_sectoral[[i]])
+  DICE_hist[[i]] <- bin_damages(DICE_damages[[i]])
+  H_S_hist[[i]] <-  bin_damages(H_S_damages[[i]])
+
+}
+
+damag_hist_tidy <- bind_rows(agg_hist, DICE_hist, H_S_hist) %>% 
+  pivot_wider(names_from = var, values_from = PRO) %>%
+  transmute(XSC, XAD, YEA,
+            PRO_damag = paste(DAC, DAN, DAM,
+                              sep = ","))
+
+# Take quantiles and reformat
 quantiles_damages <- function(x, name) {
   x %>%
     group_by(YEA) %>%
@@ -296,7 +352,8 @@ for (i in 1:length(agg_sectoral)) {
 
 damages_final <- damages_tidy[[1]] %>%
   left_join(damages_tidy[[2]]) %>%
-  left_join(damages_tidy[[3]])
+  left_join(damages_tidy[[3]]) %>%
+  left_join(damag_hist_tidy)
 
 ### SCGHG~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Still need to add processing code for certainty-equivalent SCGHG
@@ -326,6 +383,10 @@ DICE_scghg <- scghg_data[sec_dice_idx] %>%
   lapply(., transmute, sector = "total", 
                        discount_rate, 
                        scghg = total - slr - agriculture - energy - cromar_mortality)
+
+# Transform to histogram format
+
+H_S_scghg
 
 # Take quantiles and reformat
 q_H_S_scghg <-  list()
