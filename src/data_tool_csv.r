@@ -33,7 +33,7 @@ limits <- list(POP = c(0,     15000),   # Millions
                DAN = c(-50,   300),     # 2020 USD
                DAM = c(-5,    30),      # 2020 USD
                CO2 = c(0,     1000),    # 2020 USD
-               N20 = c(0,     1e5),     # 2020 USD
+               N2O = c(0,     1e5),     # 2020 USD
                CH4 = c(0,     1e4))     # 2020 USD
 
 breaks <- lapply(limits, function(x) {
@@ -119,7 +119,6 @@ covar_hist <- list()
 for (i in 1:length(covar_data)) {
 
   temp_breaks <- breaks[[which(names(breaks)==names(covar_data[[i]])[2])]]
-  temp_limits <- limits[[which(names(limits)==names(covar_data[[i]])[2])]]
   temp_labels <- labels[[which(names(labels)==names(covar_data[[i]])[2])]]
 
   covar_hist[[i]] <- covar_data[[i]] %>%
@@ -290,7 +289,6 @@ H_S_hist <-  list()
 for (i in 1:length(agg_sectoral)) {
 
   temp_breaks <- breaks[[which(names(breaks)==columns[i])]]
-  temp_limits <- limits[[which(names(limits)==columns[i])]]
   temp_labels <- labels[[which(names(labels)==columns[i])]]
 
   agg_hist[[i]] <-  bin_damages(agg_sectoral[[i]])
@@ -356,7 +354,6 @@ damages_final <- damages_tidy[[1]] %>%
   left_join(damag_hist_tidy)
 
 ### SCGHG~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Still need to add processing code for certainty-equivalent SCGHG
 
 # List files
 scghg_files <- list_files_scghg("sc-")
@@ -386,7 +383,64 @@ DICE_scghg <- scghg_data[sec_dice_idx] %>%
 
 # Transform to histogram format
 
-H_S_scghg
+hist_sectoral_sc <- lapply(sectoral_scghg, function(x) {
+  x %>%
+    arrange(sector, discount_rate) %>%
+    group_by(sector, discount_rate) %>%
+    mutate(row = row_number()) %>%
+    group_by(discount_rate, row) %>%
+    summarise(scghg = sum(scghg),
+              sector = "total",
+              .groups = "drop") %>%
+    select(sector, XDR = discount_rate, scghg)
+})
+
+hist_DICE_sc <- lapply(DICE_scghg, rename, XDR = discount_rate)
+hist_H_S_sc <- lapply(H_S_scghg, rename, XDR = discount_rate)
+
+bin_scghg <- function(x, var, XAD_lab) {
+
+  temp_breaks <- breaks[[which(names(breaks)==var)]]
+  temp_labels <- labels[[which(names(labels)==var)]]
+  
+  x %>%
+    mutate(across(scghg, ~ cut(.x, 
+                               breaks = c(-Inf,
+                                          temp_breaks,
+                                          Inf), 
+                               labels = round(temp_labels,4)))) %>%
+    group_by(XDR, scghg) %>%
+    tally() %>%
+    mutate(str = paste0('["',scghg,'","',n,'"]')) %>%
+    summarise(PRO = paste0(str, collapse = ",")) %>%
+    ungroup() %>%
+    mutate(XAD = XAD_lab, PRO = paste0('"',var,'":[',PRO,']')) %>%
+    select(XAD, XDR, PRO)
+
+}
+
+relabel_scghg <- function(x) {
+  x %>%
+    mutate(XSC = rep(scenarios, each = length(gases)*length(years))[i],
+           YEA = rep(rep(years, each = length(gases)), length(scenarios))[i]) %>%
+    select(XSC, XAD, XDR, YEA, everything())
+}
+
+for (i in 1:length(hist_sectoral_sc)) {
+  gas = gases[(i-1)%%3 + 1]
+  hist_sectoral_sc[[i]] <- bin_scghg(hist_sectoral_sc[[i]], var = gas, XAD_lab = "None") %>%
+    relabel_scghg()
+  hist_DICE_sc[[i]] <- bin_scghg(hist_DICE_sc[[i]], var = gas, XAD_lab = "DICE") %>%
+    relabel_scghg()
+  hist_H_S_sc[[i]] <- bin_scghg(hist_H_S_sc[[i]], var = gas, XAD_lab = "Howard & Sterner") %>%
+    relabel_scghg()
+}
+
+scghg_hist_tidy <- bind_rows(hist_sectoral_sc, hist_DICE_sc, hist_H_S_sc) %>%
+  arrange(XSC, XAD, XDR, YEA) %>%
+  mutate(ID = str_sub(PRO,2,4)) %>%
+  pivot_wider(names_from = ID, values_from = PRO) %>%
+  transmute(XSC, XAD, XDR, YEA, PRO_scghg = paste(CO2, N2O, CH4, sep = ","))
 
 # Take quantiles and reformat
 q_H_S_scghg <-  list()
@@ -460,31 +514,26 @@ scghg_final <- lapply(list(q_H_S_scghg,
     pivot_wider(names_from = gas, values_from = value)
 
 }) %>%
-  bind_rows()
+  bind_rows() %>%
+  left_join(scghg_hist_tidy)
 
 ### Combine and add indexing columns~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-all_but_PRO <- right_join(covar_final, damages_final) %>%
+final <- right_join(covar_final, damages_final) %>%
   right_join(scghg_final) %>%
   mutate(XTE = "FAIR", XSL = "BRICK", XPH = "Fung", XOT = "None",
          XHE = if_else(XAD == "None", "Cromar", "None"),
          XAG = if_else(XAD == "None", "Moore", "None"),
          XEN = if_else(XAD == "None", "Clarke", "None"),
-         XCI = if_else(XAD == "None", "Diaz", "None")) %>%
+         XCI = if_else(XAD == "None", "Diaz", "None"),
+         PRO = paste0("{", PRO_scghg, ",", PRO_covar, ",", PRO_damag, "}")) %>%
   select(XSC, XTE, XSL, XPH, XHE, XAG, XEN, XCI, XOT, XAD, XDR, YEA, 
          POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, 
-         DAC, DAN, DAM, CO2, N2O, CH4) %>%
+         DAC, DAN, DAM, CO2, N2O, CH4, PRO) %>%
   arrange(XSC, desc(XAD), XDR, YEA)
-
-### Histogram~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# Covariates
-
-lapply(covar_data, function(x) names(x)[2])
-bins[1]
-covar_data
-# Use covar_data, agg_sectoral, DICE_damages, H_S_damages, ...
 
 ### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-write_csv(all_but_PRO, "test.csv", quote = "none", escape = "none")
+write_csv(final, "output/web_ready.csv", quote = "none", escape = "none")
+
+# Runs in under a minute for n=100
