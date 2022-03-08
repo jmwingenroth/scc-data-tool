@@ -532,8 +532,14 @@ final <- right_join(covar_final, damages_final) %>%
          DAC, DAN, DAM, CO2, N2O, CH4, PRO) %>%
   arrange(XSC, desc(XAD), XDR, YEA)
 
+### Remove unused discounting rows~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+final_final <- final %>%
+  filter((str_detect(XSC, "RFF") & str_detect(XDR, "Ramsey")) | (str_detect(XSC, "SSP") & str_detect(XDR, "constant"))) %>%
+  mutate(XDR = str_sub(XDR,,4))
+
 ### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-write_csv(final, "output/web_ready.csv")
+write_csv(final_final, "output/web_ready.csv")
 
 # Runs in under a minute for n=100, 3 to 4 minutes for n=10000
