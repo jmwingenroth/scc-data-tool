@@ -536,4 +536,4 @@ final <- right_join(covar_final, damages_final) %>%
 
 write_csv(final, "output/web_ready.csv")
 
-# Runs in under a minute for n=100
+# Runs in under a minute for n=100, 3 to 4 minutes for n=10000
