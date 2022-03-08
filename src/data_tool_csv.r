@@ -63,12 +63,12 @@ SCC_format <- function(X = bracket_4(0,0,0,0),
                        XOT = 0) {
 
   paste0('{"X":',X,
-         ',"XHE":',round(XHE,4),
-         ',"XAG":',round(XAG,4),
-         ',"XEN":',round(XEN,4),
-         ',"XCI":',round(XCI,4),
-         ',"XOT":',round(XOT,4),
-         '}')
+         ',"XHE":"',round(XHE,4),
+         '","XAG":"',round(XAG,4),
+         '","XEN":"',round(XEN,4),
+         '","XCI":"',round(XCI,4),
+         '","XOT":"',round(XOT,4),
+         '"}')
 
 }
 
