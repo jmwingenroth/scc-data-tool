@@ -22,7 +22,7 @@ addprocs(num_physical_cores() - nprocs())
 ];
 
 socioeconomics=[:RFF, :SSP1, :SSP2, :SSP3, :SSP5];
-sectors = [:sectoral_and_dice, :h_and_s];
+sectors = [:sectoral, :dice]; # :h_and_s dropped because it was run previously
 years = 2020:10:2100;
 gases = [:CO2, :CH4, :N2O];
 
@@ -68,14 +68,22 @@ gases = [:CO2, :CH4, :N2O];
         error("Socioeconomics source $socioeconomic doesn't match available options: $socioeconomics")
     end
     
-    if sector == :sectoral_and_dice
+    if sector == :sectoral
         update_param!(m, :DamageAggregator, :include_cromar_mortality,  true)
         update_param!(m, :DamageAggregator, :include_ag,                true)
         update_param!(m, :DamageAggregator, :include_slr,               true)
         update_param!(m, :DamageAggregator, :include_energy,            true)
-        update_param!(m, :DamageAggregator, :include_dice2016R2,        true)
+        update_param!(m, :DamageAggregator, :include_dice2016R2,        false)
         update_param!(m, :DamageAggregator, :include_hs_damage,         false)
         compute_sectoral_values = true
+    elseif sector == :dice
+        update_param!(m, :DamageAggregator, :include_cromar_mortality,  false)
+        update_param!(m, :DamageAggregator, :include_ag,                false)
+        update_param!(m, :DamageAggregator, :include_slr,               false)
+        update_param!(m, :DamageAggregator, :include_energy,            false)
+        update_param!(m, :DamageAggregator, :include_dice2016R2,        true)
+        update_param!(m, :DamageAggregator, :include_hs_damage,         false)
+        compute_sectoral_values = false
     elseif sector == :h_and_s
         update_param!(m, :DamageAggregator, :include_cromar_mortality,  false)
         update_param!(m, :DamageAggregator, :include_ag,                false)
@@ -129,4 +137,9 @@ gases = [:CO2, :CH4, :N2O];
         DataFrame(v, :auto) |> save(joinpath(scc_dir, "mds_$gas--n$n-$(k.sector).csv"))
     end    
 
+    #CPC
+    for (k,v) in results[:cpc]
+        DataFrame(v, :auto) |> save(joinpath(scc_dir, "cpc_$gas--n$n-$(k.sector).csv"))
+    end    
+    
 end
