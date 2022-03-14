@@ -6,6 +6,8 @@ library(data.table)
 
 ### Parameters~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+options(scipen=999)
+
 # Inflation adjustment from https://github.com/anthofflab/paper-scc-give/blob/main/src/price_level_inflator.jl, accessed 02/28/2022:
   # (10/25/2021) BEA Table 1.1.9, line 1 GDP annual values as linked here: https://apps.bea.gov/iTable/iTable.cfm?reqid=19&step=3&isuri=1&select_all_years=0&nipa_table_list=13&series=a&first_year=2005&last_year=2020&scale=-99&categories=survey&thetable=
 inflate_05_to_20 = 113.648 / 87.504
