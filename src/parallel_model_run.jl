@@ -21,10 +21,10 @@ addprocs(num_physical_cores() - nprocs())
     (label="3.0% Ramsey", prtp=exp(0.00770271075587262)-1, eta=1.56789939457574)
 ];
 
-socioeconomics=[:RFF, :SSP1, :SSP2, :SSP3, :SSP5];
+socioeconomics=[:RFF];#, :SSP1, :SSP2, :SSP3, :SSP5];
 sectors = [:sectoral, :dice]; # :h_and_s dropped because it was run previously
 years = 2020:10:2100;
-gases = [:CO2, :CH4, :N2O];
+gases = [:CO2];#, :CH4, :N2O];
 
 @everywhere m_RFF = MimiGIVE.get_model(socioeconomics_source=:RFF)
 @everywhere m_SSP1 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP1", RCP = "RCP2.6")
@@ -96,13 +96,13 @@ gases = [:CO2, :CH4, :N2O];
         error("Damage scheme $sector doesn't match available options.")
     end
 
-    if (gas == gases[1]) & (year == years[1]) & (sector == sectors[1])
-        save_list = other_vars
-        covar_dir = "output/covariates/covariates-$socioeconomic-n$n"
-    else
+    # if (gas == gases[1]) & (year == years[1]) & (sector == sectors[1])
+    #     save_list = other_vars
+    #     covar_dir = "output/covariates/covariates-$socioeconomic-n$n"
+    # else
         save_list = []
         covar_dir = nothing
-    end
+    # end
 
     results = MimiGIVE.compute_scc(m,
                                    n = n,
