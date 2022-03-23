@@ -34,9 +34,9 @@ limits <- list(POP = c(0,     15000),   # Millions
                DAC = c(-5,    20),      # 2020 USD
                DAN = c(-50,   300),     # 2020 USD
                DAM = c(-5,    30),      # 2020 USD
-               CO2 = c(0,     1000),    # 2020 USD
-               N2O = c(0,     1e5),     # 2020 USD
-               CH4 = c(0,     1e4))     # 2020 USD
+               CO2 = c(-100,  5000),    # 2020 USD
+               N2O = c(-2e4,  1e6),     # 2020 USD
+               CH4 = c(-2000, 1e5))     # 2020 USD
 
 breaks <- lapply(limits, function(x) {
   seq(x[1], x[2], length.out = n_bins + 1)[-c(1, n_bins + 1)]
