@@ -159,7 +159,7 @@ file_key <- c("MEC", "CON", "SEA", "NOC", "OPH",
   expand_grid(XSC = scenarios, var = .) 
 
 file_key$conversions <- rep(c(1, 1, 100, 1, 1,
-                              1, 1, 44/12, 1, 1, # GDP (YPC) growth rate is unitless
+                              1, 1, 44/12, 1, 1/1000, # GDP (YPC) growth rate is unitless
                               1), length(scenarios))
 
 # Read, rename, and convert units of data
