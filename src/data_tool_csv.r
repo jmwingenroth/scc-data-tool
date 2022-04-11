@@ -63,15 +63,13 @@ SCC_format <- function(X = bracket_4(0,0,0,0),
                        XHE = 0, 
                        XAG = 0, 
                        XEN = 0, 
-                       XCI = 0, 
-                       XOT = 0) {
+                       XCI = 0) {
 
   paste0('{"X":',X,
          ',"XHE":"',round(XHE,4),
          '","XAG":"',round(XAG,4),
          '","XEN":"',round(XEN,4),
          '","XCI":"',round(XCI,4),
-         '","XOT":"',round(XOT,4),
          '"}')
 
 }
@@ -528,13 +526,13 @@ scghg_final <- lapply(list(q_H_S_scghg,
 
 final <- right_join(covar_final, damages_final) %>%
   right_join(scghg_final) %>%
-  mutate(XTE = "FAIR", XSL = "BRICK", XPH = "Fung", XOT = "None",
+  mutate(XTE = "FAIR", XSL = "BRICK", XPH = "Fung",
          XHE = if_else(XAD == "None", "Cromar", "None"),
          XAG = if_else(XAD == "None", "Moore", "None"),
          XEN = if_else(XAD == "None", "Clarke", "None"),
          XCI = if_else(XAD == "None", "Diaz", "None"),
          PRO = paste0("{", PRO_scghg, ",", PRO_covar, ",", PRO_damag, "}")) %>%
-  select(XSC, XTE, XSL, XPH, XHE, XAG, XEN, XCI, XOT, XAD, XDR, YEA, 
+  select(XSC, XTE, XSL, XPH, XHE, XAG, XEN, XCI, XAD, XDR, YEA, 
          POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, 
          DAC, DAN, DAM, CO2, N2O, CH4, PRO) %>%
   arrange(XSC, desc(XAD), XDR, YEA)
