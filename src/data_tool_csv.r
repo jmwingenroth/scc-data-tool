@@ -242,6 +242,16 @@ covar_final <- bind_rows(covar_tidy) %>%
   select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, PRO_covar) %>%
   mutate(GDP = if_else(YEA == 2020, "[null,null,null]", GDP)) # GDP-specific modification
 
+# Round POP
+covar_final$POP <- str_split(covar_final$POP, ",") %>%
+  lapply(function(x) {
+    x[1] <- str_sub(x[1],2)
+    x[3] <- str_sub(x[3],,-2)
+    x <- round(as.numeric(x), 2)
+    x <- bracket_3(x[1],x[2],x[3])
+  }) %>%
+  unlist()
+
 ### Undiscounted Damages~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 columns <- c("DAC", "DAN", "DAM")
