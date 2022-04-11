@@ -239,7 +239,8 @@ covar_final <- bind_rows(covar_tidy) %>%
   group_by(XSC, YEA) %>%
   summarise(across(MEC:TEM, .fns = ~max(.x, na.rm = TRUE))) %>%
   left_join(covar_hist_tidy) %>%
-  select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, PRO_covar)
+  select(XSC, YEA, POP, GDP, EMI, NOE, MEM, TEM, SEA, OPH, CON, NOC, MEC, PRO_covar) %>%
+  mutate(GDP = if_else(YEA == 2020, "[null,null,null]", GDP)) # GDP-specific modification
 
 ### Undiscounted Damages~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
