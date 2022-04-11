@@ -12,6 +12,8 @@ options(scipen=999)
   # (10/25/2021) BEA Table 1.1.9, line 1 GDP annual values as linked here: https://apps.bea.gov/iTable/iTable.cfm?reqid=19&step=3&isuri=1&select_all_years=0&nipa_table_list=13&series=a&first_year=2005&last_year=2020&scale=-99&categories=survey&thetable=
 inflate_05_to_20 = 113.648 / 87.504
 
+n_obs  <- 1e4
+
 n_bins <- 20
 
 scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5") # alphabetical order
@@ -89,7 +91,7 @@ relabel_damages <- function(x, XAD_lab, i = i, j = j) {
     select(XSC, XAD, YEA, var, trialnum, value)
 }
 
-bin_damages <- function(x) {
+bin_damages <- function(x, n_obs) {
 
   x %>%
     bind_rows() %>%
@@ -100,6 +102,7 @@ bin_damages <- function(x) {
                                labels = round(temp_labels,4)))) %>%
     group_by(XSC, XAD, YEA, var, value) %>%
     tally() %>%
+    mutate(n = if_else(n == n_obs, 0, as.numeric(n))) %>%
     mutate(str = paste0('["',value,'","',n,'"]')) %>%
     summarise(PRO = paste0(str, collapse = ",")) %>%
     ungroup() %>%
@@ -117,7 +120,7 @@ quantiles_damages <- function(x, name) {
     select(YEA, !!quo_name(name) := bracket)
 }
 
-bin_scghg <- function(x, var, XAD_lab) {
+bin_scghg <- function(x, var, XAD_lab, n_obs) {
 
   temp_breaks <- breaks[[which(names(breaks)==var)]]
   temp_labels <- labels[[which(names(labels)==var)]]
@@ -130,6 +133,7 @@ bin_scghg <- function(x, var, XAD_lab) {
                                labels = round(temp_labels,4)))) %>%
     group_by(XDR, scghg) %>%
     tally() %>%
+    mutate(n = if_else(n == n_obs, 0, as.numeric(n))) %>%
     mutate(str = paste0('["',scghg,'","',n,'"]')) %>%
     summarise(PRO = paste0(str, collapse = ",")) %>%
     ungroup() %>%
@@ -195,6 +199,7 @@ for (i in 1:length(covar_data)) {
                                labels = round(temp_labels,4)))) %>%
     group_by(time, var) %>%
     tally() %>%
+    mutate(n = if_else(n == n_obs, 0, as.numeric(n))) %>%
     arrange(time, var) %>%
     mutate(str = paste0('["',var,'","',n,'"]')) %>%
     summarise(PRO = paste0(str, collapse = ",")) %>%
@@ -330,9 +335,9 @@ for (i in 1:length(agg_sectoral)) {
   temp_breaks <- breaks[[which(names(breaks)==columns[i])]]
   temp_labels <- labels[[which(names(labels)==columns[i])]]
 
-  agg_hist[[i]] <-  bin_damages(agg_sectoral[[i]])
-  DICE_hist[[i]] <- bin_damages(DICE_damages[[i]])
-  H_S_hist[[i]] <-  bin_damages(H_S_damages[[i]])
+  agg_hist[[i]] <-  bin_damages(agg_sectoral[[i]], n_obs)
+  DICE_hist[[i]] <- bin_damages(DICE_damages[[i]], n_obs)
+  H_S_hist[[i]] <-  bin_damages(H_S_damages[[i]], n_obs)
 
 }
 
@@ -430,11 +435,11 @@ hist_H_S_sc <- lapply(H_S_scghg, rename, XDR = discount_rate)
 
 for (i in 1:length(hist_sectoral_sc)) {
   gas = gases[(i-1)%%3 + 1]
-  hist_sectoral_sc[[i]] <- bin_scghg(hist_sectoral_sc[[i]], var = gas, XAD_lab = "None") %>%
+  hist_sectoral_sc[[i]] <- bin_scghg(hist_sectoral_sc[[i]], var = gas, XAD_lab = "None", n_obs = n_obs) %>%
     relabel_scghg()
-  hist_DICE_sc[[i]] <- bin_scghg(hist_DICE_sc[[i]], var = gas, XAD_lab = "DICE") %>%
+  hist_DICE_sc[[i]] <- bin_scghg(hist_DICE_sc[[i]], var = gas, XAD_lab = "DICE", n_obs = n_obs) %>%
     relabel_scghg()
-  hist_H_S_sc[[i]] <- bin_scghg(hist_H_S_sc[[i]], var = gas, XAD_lab = "Howard & Sterner") %>%
+  hist_H_S_sc[[i]] <- bin_scghg(hist_H_S_sc[[i]], var = gas, XAD_lab = "Howard & Sterner", n_obs = n_obs) %>%
     relabel_scghg()
 }
 
