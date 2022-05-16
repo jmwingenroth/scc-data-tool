@@ -22,23 +22,23 @@ gases <- c("CH4", "CO2", "N2O")
 
 years <- seq(2020, 2100, by = 10)
 
-limits <- list(POP = c(0,     15000),   # Millions
+limits <- list(POP = c(0,     15),      # Billions
                GDP = c(-.02,  .05),     # Growth rate
-               EMI = c(0,     75),      # Gt CO2
-               NOE = c(0,     60),      # Mt N2O
-               MEM = c(0,     1500),    # Mt CH4
+               EMI = c(-20,   140),     # Gt CO2
+               NOE = c(0,     20),      # Mt N2O
+               MEM = c(0,     1000),    # Mt CH4
                TEM = c(0,     6),       # Anomaly (K)
                SEA = c(0,     200),     # cm
                OPH = c(7.6,   8.2),     # pH (no units)
-               CON = c(0,     1000),    # ppm
-               NOC = c(0,     1000),    # ppb
-               MEC = c(0,     3000),    # ppb
-               DAC = c(-5,    20),      # 2020 USD
-               DAN = c(-50,   300),     # 2020 USD
-               DAM = c(-5,    30),      # 2020 USD
-               CO2 = c(0,     1000),    # 2020 USD
-               N2O = c(0,     1e5),     # 2020 USD
-               CH4 = c(0,     1e4))     # 2020 USD
+               CON = c(0,     1200),    # ppm
+               NOC = c(0,     500),     # ppb
+               MEC = c(0,     3500),    # ppb
+               DAC = c(-5,    15),      # 2020 USD
+               DAN = c(-500,  5500),    # 2020 USD
+               DAM = c(-100,  300),     # 2020 USD
+               CO2 = c(-500,  2500),    # 2020 USD
+               N2O = c(-5e4,  5e5),     # 2020 USD
+               CH4 = c(-5e3,  5e4))     # 2020 USD
 
 breaks <- lapply(limits, function(x) {
   seq(x[1], x[2], length.out = n_bins + 1)[-c(1, n_bins + 1)]
