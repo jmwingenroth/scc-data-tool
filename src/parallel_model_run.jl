@@ -12,7 +12,7 @@ addprocs(num_physical_cores() - nprocs())
 @everywhere Pkg.activate(".")
 @everywhere using Mimi, MimiGIVE, DataFrames, Random
 
-@everywhere n = 3
+@everywhere n = 10_000
 
 @everywhere discount_rates = [
     (label="2.0% CDR", prtp=0.02, eta=0.),
@@ -21,29 +21,23 @@ addprocs(num_physical_cores() - nprocs())
     (label="3.0% Ramsey", prtp=exp(0.00770271075587262)-1, eta=1.56789939457574)
 ];
 
-socioeconomics=[:RFF, :SSP1, :SSP2, :SSP3, :SSP5];
-sectors = [:sectoral, :dice]; # :h_and_s dropped because it was run previously
-years = 2020:10:2100;
-gases = [:CO2, :CH4, :N2O];
+socioeconomics=[:RFF] #, :SSP1, :SSP2, :SSP3, :SSP5];
+sectors = [:sectoral, :dice, :h_and_s];
+years = 2020 #:10:2100;
+gases = [:CO2] #, :CH4, :N2O];
 
-@everywhere m_RFF = MimiGIVE.get_model(socioeconomics_source=:RFF)
-@everywhere m_SSP1 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP1", RCP = "RCP2.6")
-@everywhere m_SSP2 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP2", RCP = "RCP4.5")
-@everywhere m_SSP3 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP3", RCP = "RCP7.0")
-@everywhere m_SSP5 = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP5", RCP = "RCP8.5")
-
-@everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
-                          (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
-                          (:Socioeconomic, :co2_emissions),         # Emissions (GtC/yr)
-                          (:Socioeconomic, :n2o_emissions),         # Emissions (GtN2O/yr)
-                          (:Socioeconomic, :ch4_emissions),         # Emissions (GtCH4/yr)
-                          (:TempNorm_1850to1900, :global_temperature_norm), # Global surface temperature anomaly (K) from preinudstrial
-                          (:global_sea_level, :sea_level_rise),     # Total sea level rise from all components (includes landwater storage for projection periods) (m)
-                          (:OceanPH, :pH),                          # Ocean pH levels
-                          (:co2_cycle, :co2),                       # Total atmospheric concentrations (ppm)
-                          (:n2o_cycle, :N₂O),                       # Total atmospheric concentrations (ppb)
-                          (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
-];
+# @everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
+#                           (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
+#                           (:Socioeconomic, :co2_emissions),         # Emissions (GtC/yr)
+#                           (:Socioeconomic, :n2o_emissions),         # Emissions (GtN2O/yr)
+#                           (:Socioeconomic, :ch4_emissions),         # Emissions (GtCH4/yr)
+#                           (:TempNorm_1850to1900, :global_temperature_norm), # Global surface temperature anomaly (K) from preinudstrial
+#                           (:global_sea_level, :sea_level_rise),     # Total sea level rise from all components (includes landwater storage for projection periods) (m)
+#                           (:OceanPH, :pH),                          # Ocean pH levels
+#                           (:co2_cycle, :co2),                       # Total atmospheric concentrations (ppm)
+#                           (:n2o_cycle, :N₂O),                       # Total atmospheric concentrations (ppb)
+#                           (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
+# ];
 
 # Compute SCC values
 
@@ -54,16 +48,19 @@ gases = [:CO2, :CH4, :N2O];
     scc_dir = "output/scghg/scghg-$socioeconomic-$sector-$year-$gas-n$n"
     mkpath(scc_dir)
 
+    @everywhere Random.seed!(24523438)
+
     if socioeconomic == :RFF
-        m = m_RFF
+        m = MimiGIVE.get_model(socioeconomics_source=:RFF)
     elseif socioeconomic == :SSP1
-        m = m_SSP1
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP1", RCP = "RCP2.6")
     elseif socioeconomic == :SSP2
-        m = m_SSP2
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP2", RCP = "RCP4.5")
     elseif socioeconomic == :SSP3
-        m = m_SSP3
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP3", RCP = "RCP7.0")
     elseif socioeconomic == :SSP5
-        m = m_SSP5
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP5", RCP = "RCP8.5")
+
     else
         error("Socioeconomics source $socioeconomic doesn't match available options.")
     end
@@ -97,8 +94,8 @@ gases = [:CO2, :CH4, :N2O];
     end
 
     if (gas == gases[1]) & (year == years[1]) & (sector == sectors[1])
-        save_list = other_vars
-        covar_dir = "output/covariates/covariates-$socioeconomic-n$n"
+        save_list = []
+        covar_dir = nothing
     else
         save_list = []
         covar_dir = nothing
