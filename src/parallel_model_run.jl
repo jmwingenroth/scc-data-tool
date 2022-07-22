@@ -10,7 +10,7 @@ addprocs(num_physical_cores() - nprocs())
 
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
-@everywhere using Mimi, MimiGIVE, DataFrames, Random
+@everywhere using Mimi, MimiGIVE, DataFrames, Random, ProgressMeter
 
 @everywhere n = 10_000
 
@@ -41,7 +41,7 @@ gases = [:CO2] #, :CH4, :N2O];
 
 # Compute SCC values
 
-@time res = pmap((gas, year, sector, socioeconomic) for gas in gases, year in years, sector in sectors, socioeconomic in socioeconomics) do (gas, year, sector, socioeconomic)
+@showprogress pmap((gas, year, sector, socioeconomic) for gas in gases, year in years, sector in sectors, socioeconomic in socioeconomics) do (gas, year, sector, socioeconomic)
     
     println("Running socio: $socioeconomic, sector: $sector, pulse year: $year, gas: $gas")
 
@@ -94,14 +94,14 @@ gases = [:CO2] #, :CH4, :N2O];
     end
 
     if (gas == gases[1]) & (year == years[1]) & (sector == sectors[1])
-        save_list = []
-        covar_dir = nothing
+        save_list = [] #other_vars
+        covar_dir = nothing #"output/covariates/covariates-$socioeconomic-n$n"
     else
         save_list = []
         covar_dir = nothing
     end
 
-    results = compute_scc(m;
+    results = MimiGIVE.compute_scc(m;
         year = year,
         last_year = 2300,
         discount_rates = discount_rates,
