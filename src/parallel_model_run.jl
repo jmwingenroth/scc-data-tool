@@ -12,7 +12,7 @@ addprocs(num_physical_cores() - nprocs())
 @everywhere Pkg.activate(".")
 @everywhere using Mimi, MimiGIVE, DataFrames, Random, ProgressMeter
 
-@everywhere n = 10_000
+@everywhere n = 3
 
 @everywhere discount_rates = [
     (label="2.0% CDR", prtp=0.02, eta=0.),
@@ -21,10 +21,10 @@ addprocs(num_physical_cores() - nprocs())
     (label="3.0% Ramsey", prtp=exp(0.00770271075587262)-1, eta=1.56789939457574)
 ];
 
-socioeconomics=[:RFF] #, :SSP1, :SSP2, :SSP3, :SSP5];
+socioeconomics=[:RFF, :SSP1, :SSP2, :SSP3, :SSP5];
 sectors = [:sectoral, :dice, :h_and_s];
-years = 2020 #:10:2100;
-gases = [:CO2] #, :CH4, :N2O];
+years = 2030:10:2100;
+gases = [:CO2, :CH4, :N2O];
 
 # @everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
 #                           (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
