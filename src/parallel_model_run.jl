@@ -53,13 +53,13 @@ gases = [:CO2, :CH4, :N2O];
     if socioeconomic == :RFF
         m = MimiGIVE.get_model(socioeconomics_source=:RFF)
     elseif socioeconomic == :SSP1
-        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP1", RCP = "RCP2.6")
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP_scenario = "SSP126")
     elseif socioeconomic == :SSP2
-        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP2", RCP = "RCP4.5")
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP_scenario = "SSP245")
     elseif socioeconomic == :SSP3
-        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP3", RCP = "RCP7.0")
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP_scenario = "SSP370")
     elseif socioeconomic == :SSP5
-        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP = "SSP5", RCP = "RCP8.5")
+        m = MimiGIVE.get_model(socioeconomics_source=:SSP, SSP_scenario = "SSP585")
 
     else
         error("Socioeconomics source $socioeconomic doesn't match available options.")
