@@ -23,7 +23,7 @@ addprocs(num_physical_cores() - nprocs())
 
 socioeconomics=[:RFF, :SSP1, :SSP2, :SSP3, :SSP5];
 sectors = [:sectoral, :dice, :h_and_s];
-years = 2030:10:2100;
+years = 2020:10:2100;
 gases = [:CO2, :CH4, :N2O];
 
 # @everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
