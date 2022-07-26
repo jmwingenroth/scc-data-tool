@@ -6,13 +6,13 @@ Pkg.instantiate()
 
 using Distributed, Hwloc
 
-addprocs(num_physical_cores() - nprocs())
+addprocs(75)
 
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
 @everywhere using Mimi, MimiGIVE, DataFrames, Random, ProgressMeter
 
-@everywhere n = 3
+@everywhere n = 10_000
 
 @everywhere discount_rates = [
     (label="2.0% CDR", prtp=0.02, eta=0.),
