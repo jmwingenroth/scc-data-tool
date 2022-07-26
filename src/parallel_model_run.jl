@@ -26,18 +26,18 @@ sectors = [:sectoral, :dice, :h_and_s];
 years = 2020:10:2100;
 gases = [:CO2, :CH4, :N2O];
 
-# @everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
-#                           (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
-#                           (:Socioeconomic, :co2_emissions),         # Emissions (GtC/yr)
-#                           (:Socioeconomic, :n2o_emissions),         # Emissions (GtN2O/yr)
-#                           (:Socioeconomic, :ch4_emissions),         # Emissions (GtCH4/yr)
-#                           (:TempNorm_1850to1900, :global_temperature_norm), # Global surface temperature anomaly (K) from preinudstrial
-#                           (:global_sea_level, :sea_level_rise),     # Total sea level rise from all components (includes landwater storage for projection periods) (m)
-#                           (:OceanPH, :pH),                          # Ocean pH levels
-#                           (:co2_cycle, :co2),                       # Total atmospheric concentrations (ppm)
-#                           (:n2o_cycle, :N₂O),                       # Total atmospheric concentrations (ppb)
-#                           (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
-# ];
+@everywhere other_vars = [(:Socioeconomic, :population_global),     # Global population (millions of persons)
+                          (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
+                          (:Socioeconomic, :co2_emissions),         # Emissions (GtC/yr)
+                          (:Socioeconomic, :n2o_emissions),         # Emissions (GtN2O/yr)
+                          (:Socioeconomic, :ch4_emissions),         # Emissions (GtCH4/yr)
+                          (:TempNorm_1850to1900, :global_temperature_norm), # Global surface temperature anomaly (K) from preinudstrial
+                          (:global_sea_level, :sea_level_rise),     # Total sea level rise from all components (includes landwater storage for projection periods) (m)
+                          (:OceanPH, :pH),                          # Ocean pH levels
+                          (:co2_cycle, :co2),                       # Total atmospheric concentrations (ppm)
+                          (:n2o_cycle, :N₂O),                       # Total atmospheric concentrations (ppb)
+                          (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
+];
 
 # Compute SCC values
 
@@ -94,8 +94,8 @@ gases = [:CO2, :CH4, :N2O];
     end
 
     if (gas == gases[1]) & (year == years[1]) & (sector == sectors[1])
-        save_list = [] #other_vars
-        covar_dir = nothing #"output/covariates/covariates-$socioeconomic-n$n"
+        save_list = other_vars
+        covar_dir = "output/covariates/covariates-$socioeconomic-n$n"
     else
         save_list = []
         covar_dir = nothing
