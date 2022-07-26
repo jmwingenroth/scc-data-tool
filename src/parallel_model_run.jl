@@ -48,8 +48,6 @@ gases = [:CO2, :CH4, :N2O];
     scc_dir = "output/scghg/scghg-$socioeconomic-$sector-$year-$gas-n$n"
     mkpath(scc_dir)
 
-    @everywhere Random.seed!(24523438)
-
     if socioeconomic == :RFF
         m = MimiGIVE.get_model(socioeconomics_source=:RFF)
     elseif socioeconomic == :SSP1
