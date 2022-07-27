@@ -6,7 +6,7 @@ Pkg.instantiate()
 
 using Distributed, Hwloc
 
-addprocs(96)
+addprocs(num_physical_cores() - nprocs())
 
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
