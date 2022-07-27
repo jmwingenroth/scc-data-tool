@@ -6,7 +6,7 @@ Pkg.instantiate()
 
 using Distributed, Hwloc
 
-addprocs(75)
+addprocs(96)
 
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
