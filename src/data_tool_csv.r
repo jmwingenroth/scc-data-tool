@@ -291,45 +291,17 @@ H_S_damages <- lapply(dam_tidy, function(x) {
 })
 
 sectoral_damages <- lapply(dam_tidy, function(x) {
-  x[!str_detect(names(x), "h_and_s") & !str_detect(names(x), "total")]
-})
-
-DICE_plus_sectoral <- lapply(dam_tidy, function(x) {
   x[str_detect(names(x), "sectoral.*total")]
 })
 
-# Aggregate sectoral damages
-agg_sectoral <- list()
-for (i in 1:length(sectoral_damages)) {
-  agg_sectoral[[i]] <- list()
-  sectoral_damages[[i]] <- lapply(sectoral_damages[[i]], function(x) as.matrix(x))
-  n <- length(sectoral_damages[[i]])/length(scenarios)
-  for (j in 1:length(scenarios)) {
-
-    agg_sectoral[[i]][[j]] <- Reduce('+', sectoral_damages[[i]][(n*(j-1) + 1):(n*j)])
-    agg_sectoral[[i]][[j]][,"YEA"] <- agg_sectoral[[i]][[j]][,"YEA"]/n 
-    agg_sectoral[[i]][[j]][,"trialnum"] <- agg_sectoral[[i]][[j]][,"trialnum"]/n 
-  
-  }
-  agg_sectoral[[i]] <- lapply(agg_sectoral[[i]], as_tibble)
-}
-
-# Subtract sectoral damages from DICE+sectoral
-DICE_damages <- list()
-for (i in 1:length(agg_sectoral)) {
-  DICE_damages[[i]] <- list()
-  for (j in 1:length(agg_sectoral[[i]])) {
-
-    DICE_damages[[i]][[j]] <- DICE_plus_sectoral[[i]][[j]]
-    DICE_damages[[i]][[j]]$value <- DICE_plus_sectoral[[i]][[j]]$value - agg_sectoral[[i]][[j]]$value
-
-  }
-}
+DICE_damages <- lapply(dam_tidy, function(x) {
+  x[str_detect(names(x), "dice.*total")]
+})
 
 # Label data
-for (i in 1:length(agg_sectoral)) {
-  for (j in 1:length(agg_sectoral[[i]])) {
-    agg_sectoral[[i]][[j]] <- relabel_damages(agg_sectoral[[i]][[j]],"None",i,j)
+for (i in 1:length(sectoral_damages)) {
+  for (j in 1:length(sectoral_damages[[i]])) {
+    sectoral_damages[[i]][[j]] <- relabel_damages(sectoral_damages[[i]][[j]],"None",i,j)
     DICE_damages[[i]][[j]] <- relabel_damages(DICE_damages[[i]][[j]],"DICE",i,j)
     H_S_damages[[i]][[j]]  <- relabel_damages(H_S_damages[[i]][[j]], "Howard & Sterner",i,j)
   }
@@ -339,12 +311,12 @@ for (i in 1:length(agg_sectoral)) {
 agg_hist <-  list()
 DICE_hist <- list()
 H_S_hist <-  list()
-for (i in 1:length(agg_sectoral)) {
+for (i in 1:length(sectoral_damages)) {
 
   temp_breaks <- breaks[[which(names(breaks)==columns[i])]]
   temp_labels <- labels[[which(names(labels)==columns[i])]]
 
-  agg_hist[[i]] <-  bin_damages(agg_sectoral[[i]], n_obs)
+  agg_hist[[i]] <-  bin_damages(sectoral_damages[[i]], n_obs)
   DICE_hist[[i]] <- bin_damages(DICE_damages[[i]], n_obs)
   H_S_hist[[i]] <-  bin_damages(H_S_damages[[i]], n_obs)
 
@@ -358,18 +330,18 @@ damag_hist_tidy <- bind_rows(agg_hist, DICE_hist, H_S_hist) %>%
 
 # Take quantiles and reformat
 
-q_agg_sectoral <- list()
+q_sectoral_damages <- list()
 q_DICE_damages <- list()
 q_H_S_damages <-  list()
 damages_tidy <- list()
-for (i in 1:length(agg_sectoral)) {
+for (i in 1:length(sectoral_damages)) {
 
-  q_agg_sectoral[[i]] <- lapply(agg_sectoral[[i]], 
-                                quantiles_damages,
-                                name = columns[i]) %>%
+  q_sectoral_damages[[i]] <- lapply(sectoral_damages[[i]], 
+                                    quantiles_damages,
+                                    name = columns[i]) %>%
     bind_rows()
-  q_agg_sectoral[[i]]$XSC <- rep(scenarios, each = length(years))
-  q_agg_sectoral[[i]]$XAD <- "None"
+  q_sectoral_damages[[i]]$XSC <- rep(scenarios, each = length(years))
+  q_sectoral_damages[[i]]$XAD <- "None"
 
   q_DICE_damages[[i]] <- lapply(DICE_damages[[i]], 
                                 quantiles_damages,
@@ -385,7 +357,7 @@ for (i in 1:length(agg_sectoral)) {
   q_H_S_damages[[i]]$XSC <- rep(scenarios, each = length(years))
   q_H_S_damages[[i]]$XAD <- "Howard & Sterner"
 
-  damages_tidy[[i]] <- bind_rows(q_agg_sectoral[[i]], 
+  damages_tidy[[i]] <- bind_rows(q_sectoral_damages[[i]], 
                                  q_DICE_damages[[i]], 
                                  q_H_S_damages[[i]]) %>%
     select(XSC, XAD, YEA, everything())
@@ -409,42 +381,30 @@ scghg_data <- lapply(scghg_files, read_csv, show_col_types = FALSE) %>%
 
 # Extract H&S, sectoral, and DICE data
 H_S_idx <- which(str_detect(scghg_files, "h_and_s"))
-sec_dice_idx <- which(str_detect(scghg_files, "sectoral_and_dice"))
+sec_idx <- which(str_detect(scghg_files, "sectoral"))
+DICE_idx <- which(str_detect(scghg_files, "dice"))
 
 H_S_scghg <- scghg_data[H_S_idx] %>% 
   lapply(., filter, sector == "total")
 
-sectoral_scghg <- scghg_data[sec_dice_idx] %>% 
+aggregate_scghg <- scghg_data[sec_idx] %>% 
+  lapply(., filter, sector == "total")
+
+sectoral_scghg <- scghg_data[sec_idx] %>% 
   lapply(., filter, sector != "total")
 
-DICE_scghg <- scghg_data[sec_dice_idx] %>% 
-  lapply(., group_by, sector, discount_rate) %>%
-  lapply(., mutate, trialnum = row_number()) %>%
-  lapply(., pivot_wider, names_from = sector, values_from = scghg) %>%
-  lapply(., transmute, sector = "total", 
-                       discount_rate, 
-                       scghg = total - slr - agriculture - energy - cromar_mortality)
+DICE_scghg <- scghg_data[DICE_idx] %>% 
+  lapply(., filter, sector == "total")
 
 # Transform to histogram format
 
-hist_sectoral_sc <- lapply(sectoral_scghg, function(x) {
-  x %>%
-    arrange(sector, discount_rate) %>%
-    group_by(sector, discount_rate) %>%
-    mutate(row = row_number()) %>%
-    group_by(discount_rate, row) %>%
-    summarise(scghg = sum(scghg),
-              sector = "total",
-              .groups = "drop") %>%
-    select(sector, XDR = discount_rate, scghg)
-})
-
+hist_aggregate_sc <- lapply(aggregate_scghg, rename, XDR = discount_rate)
 hist_DICE_sc <- lapply(DICE_scghg, rename, XDR = discount_rate)
 hist_H_S_sc <- lapply(H_S_scghg, rename, XDR = discount_rate)
 
-for (i in 1:length(hist_sectoral_sc)) {
+for (i in 1:length(hist_aggregate_sc)) {
   gas = gases[(i-1)%%3 + 1]
-  hist_sectoral_sc[[i]] <- bin_scghg(hist_sectoral_sc[[i]], var = gas, XAD_lab = "None", n_obs = n_obs) %>%
+  hist_aggregate_sc[[i]] <- bin_scghg(hist_aggregate_sc[[i]], var = gas, XAD_lab = "None", n_obs = n_obs) %>%
     relabel_scghg()
   hist_DICE_sc[[i]] <- bin_scghg(hist_DICE_sc[[i]], var = gas, XAD_lab = "DICE", n_obs = n_obs) %>%
     relabel_scghg()
@@ -452,7 +412,7 @@ for (i in 1:length(hist_sectoral_sc)) {
     relabel_scghg()
 }
 
-scghg_hist_tidy <- bind_rows(hist_sectoral_sc, hist_DICE_sc, hist_H_S_sc) %>%
+scghg_hist_tidy <- bind_rows(hist_aggregate_sc, hist_DICE_sc, hist_H_S_sc) %>%
   arrange(XSC, XAD, XDR, YEA) %>%
   mutate(ID = str_sub(PRO,2,4)) %>%
   pivot_wider(names_from = ID, values_from = PRO) %>%
