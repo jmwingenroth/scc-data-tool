@@ -373,10 +373,15 @@ damages_final <- damages_tidy[[1]] %>%
 
 # List files
 scghg_files <- list_files_scghg("^sc-")
+ce_scghg_files <- list_files_scghg("^cert-equiv")
 
 # Read data and adjust for inflation
 scghg_data <- lapply(scghg_files, read_csv, show_col_types = FALSE) %>%
   lapply(., mutate, scghg = scghg*inflate_05_to_20, 
+                    discount_rate = str_replace(discount_rate, "CDR", "constant"))
+
+ce_scghg_data <- lapply(ce_scghg_files, read_csv, show_col_types = FALSE) %>%
+  lapply(., mutate, ce_scghg = ce_scghg*inflate_05_to_20, 
                     discount_rate = str_replace(discount_rate, "CDR", "constant"))
 
 # Extract H&S, sectoral, and DICE data
@@ -386,8 +391,11 @@ DICE_idx <- which(str_detect(scghg_files, "dice"))
 
 H_S_scghg <- scghg_data[H_S_idx] %>% 
   lapply(., filter, sector == "total")
+ce_H_S_scghg <- ce_scghg_data[H_S_idx]
 
 aggregate_scghg <- scghg_data[sec_idx] %>% 
+  lapply(., filter, sector == "total")
+ce_aggregate_scghg <- ce_scghg_data[sec_idx] %>% 
   lapply(., filter, sector == "total")
 
 sectoral_scghg <- scghg_data[sec_idx] %>% 
@@ -395,6 +403,7 @@ sectoral_scghg <- scghg_data[sec_idx] %>%
 
 DICE_scghg <- scghg_data[DICE_idx] %>% 
   lapply(., filter, sector == "total")
+ce_DICE_scghg <- ce_scghg_data[DICE_idx]
 
 # Transform to histogram format
 
@@ -429,6 +438,7 @@ for (i in 1:length(H_S_scghg)) {
     summarise(across(scghg, .fns = list(bot = ~ quantile(.x, .025),
                                         mid = ~ mean(.x),
                                         top = ~ quantile(.x, .975)))) %>%
+    left_join(ce_H_S_scghg[[i]]) %>%
     transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(H_S_scghg))],
               XAD = "Howard & Sterner", 
               XDR = discount_rate,
@@ -437,13 +447,14 @@ for (i in 1:length(H_S_scghg)) {
               value = SCC_format(bracket_4(scghg_bot, 
                                            scghg_mid, 
                                            scghg_top, 
-                                           scghg_mid*.96))) # placeholder 
+                                           ce_scghg)))
 
   q_DICE_scghg[[i]] <- DICE_scghg[[i]] %>%
     group_by(discount_rate) %>%
     summarise(across(scghg, .fns = list(bot = ~ quantile(.x, .025),
                                         mid = ~ mean(.x),
                                         top = ~ quantile(.x, .975)))) %>%
+    left_join(ce_DICE_scghg[[i]]) %>%
     transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(DICE_scghg))],
               XAD = "DICE", 
               XDR = discount_rate,
@@ -452,7 +463,7 @@ for (i in 1:length(H_S_scghg)) {
               value = SCC_format(bracket_4(scghg_bot, 
                                            scghg_mid, 
                                            scghg_top, 
-                                           scghg_mid*.96))) # placeholder 
+                                           ce_scghg))) 
 
   q_sectoral_scghg[[i]] <- sectoral_scghg[[i]] %>%
     group_by(sector, discount_rate) %>%
@@ -465,6 +476,7 @@ for (i in 1:length(H_S_scghg)) {
     select(-scghg_bot, -scghg_top) %>%
     pivot_wider(names_from = sector, values_from = scghg_mid) %>%
     ungroup() %>%
+    left_join(ce_aggregate_scghg[[i]]) %>%
     transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(sectoral_scghg))],
               XAD = "None", 
               XDR = discount_rate,
@@ -473,7 +485,7 @@ for (i in 1:length(H_S_scghg)) {
               value = SCC_format(bracket_4(scghg_bot_sum, 
                                            scghg_mid_sum, 
                                            scghg_top_sum, 
-                                           scghg_mid_sum*.96), # placeholder
+                                           ce_scghg), 
                                    XAG = agriculture,
                                    XHE = cromar_mortality,
                                    XEN = energy,
