@@ -14,8 +14,6 @@ inflate_05_to_20 = 113.648 / 87.504
 
 n_obs  <- 1e4
 
-n_bins <- 20
-
 scenarios <- c("RFF-SPs", "SSP1", "SSP2", "SSP3", "SSP5") # alphabetical order
 
 gases <- c("CH4", "CO2", "N2O")
@@ -40,13 +38,34 @@ limits <- list(POP = c(0,     15),      # Billions
                N2O = c(-5e4,  5e5),     # 2020 USD
                CH4 = c(-5e3,  5e4))     # 2020 USD
 
-breaks <- lapply(limits, function(x) {
-  seq(x[1], x[2], length.out = n_bins + 1)[-c(1, n_bins + 1)]
-})
+bin_sizes <- list(POP = 0.5,   # Billions
+                  GDP = 0.0025, # Growth rate
+                  EMI = 4,     # Gt CO2
+                  NOE = 0.5,   # Mt N2O
+                  MEM = 25,    # Mt CH4
+                  TEM = 0.2,   # Anomaly (K)
+                  SEA = 5,     # cm
+                  OPH = 0.02,  # pH (no units)
+                  CON = 25,    # ppm
+                  NOC = 20,    # ppb
+                  MEC = 100,   # ppb
+                  DAC = .5,    # 2020 USD
+                  DAN = 250,   # 2020 USD
+                  DAM = 10,    # 2020 USD
+                  CO2 = 100,   # 2020 USD
+                  N2O = 1e4,   # 2020 USD
+                  CH4 = 1e3)   # 2020 USD
+
+breaks <- list()
+labels <- list()
+
+for (i in 1:length(limits)) {
+  breaks[[i]] <- seq(limits[[i]][1], limits[[i]][2], by = bin_sizes[[i]])
+}
 
 labels <- lapply(breaks, function(x) {
   half_bin_w <- (x[2] - x[1])/2
-  seq(x[1] - half_bin_w, x[n_bins-1] + half_bin_w, length.out = n_bins)
+  (x + half_bin_w)[-length(x)]
 })
 
 ### Handy Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
