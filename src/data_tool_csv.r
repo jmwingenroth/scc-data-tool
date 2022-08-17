@@ -63,10 +63,15 @@ for (i in 1:length(limits)) {
   breaks[[i]] <- seq(limits[[i]][1], limits[[i]][2], by = bin_sizes[[i]])
 }
 
+names(breaks) <- names(limits)
+
 labels <- lapply(breaks, function(x) {
   half_bin_w <- (x[2] - x[1])/2
   (x + half_bin_w)[-length(x)]
 })
+
+breaks <- lapply(breaks, function(x) x[-c(1, length(x))])
+
 
 ### Handy Functions~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -213,7 +218,7 @@ for (i in 1:length(covar_data)) {
     mutate(across(2, ~ cut(.x, breaks = c(-Inf,
                                           temp_breaks,
                                           Inf), 
-                               labels = round(temp_labels,4)))) %>%
+                               labels = round(temp_labels,5)))) %>%
     group_by(time, var) %>%
     tally() %>%
     mutate(n = if_else(n == n_obs, 0, as.numeric(n))) %>%
