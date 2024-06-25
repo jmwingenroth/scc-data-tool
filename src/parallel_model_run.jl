@@ -15,11 +15,12 @@ addprocs(num_physical_cores() - nprocs())
 @everywhere n = 10_000
 
 @everywhere discount_rates = [
-    (label="2.0% CDR", prtp=0.02, eta=0.),
-    (label="3.0% CDR", prtp=0.03, eta=0.), 
-    (label="2.0% Ramsey", prtp=exp(0.00197263996888441)-1, eta=1.24445906630114),
-    (label="3.0% Ramsey", prtp=exp(0.00770271075587262)-1, eta=1.56789939457574)
+    (label = "1.5%", prtp = exp(9.149606e-05) - 1, eta = 1.016010e+00), 
+    (label = "2.0%", prtp = exp(0.001972641) - 1, eta = 1.244458999), 
+    (label = "2.5%", prtp = exp(0.004618784) - 1, eta = 1.421158088), 
+    (label = "3.0%", prtp = exp(0.007702711) - 1, eta = 1.567899391),
 ];
+
 
 socioeconomics=[:RFF, :SSP1, :SSP2, :SSP3, :SSP5];
 sectors = [:sectoral, :dice, :h_and_s];
