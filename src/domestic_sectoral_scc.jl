@@ -36,7 +36,11 @@ scc_sectoral_domestic = function(year, n)
 
     covar_dir = "output/covariates/covariates-n$n"
 
+    m = MimiGIVE.get_model(socioeconomics_source=:RFF)
+
     # Compute SCC values
+
+    println("Running year = $year")
 
     results = MimiGIVE.compute_scc(m;
         year = year,
@@ -70,17 +74,17 @@ scc_sectoral_domestic = function(year, n)
     end
     
     ## export    
-    scghg |> save(joinpath(scc_dir, "sc-$gas-n$n.csv"))
-    ce_scghg |> save(joinpath(scc_dir, "cert-equiv-sc-$gas-n$n.csv"))
+    scghg |> save(joinpath(scc_dir, "scc-n$n.csv"))
+    ce_scghg |> save(joinpath(scc_dir, "cert-equiv-scc-n$n.csv"))
 
     #marginal damages
     for (k,v) in results[:mds]
-        DataFrame(v, :auto) |> save(joinpath(scc_dir, "mds_$gas--n$n-$(k.sector).csv"))
+        DataFrame(v, :auto) |> save(joinpath(scc_dir, "mds_n$n-$(k.sector).csv"))
     end    
 
     #CPC
     for (k,v) in results[:cpc]
-        DataFrame(v, :auto) |> save(joinpath(scc_dir, "cpc_$gas--n$n-$(k.sector).csv"))
+        DataFrame(v, :auto) |> save(joinpath(scc_dir, "cpc_n$n-$(k.sector).csv"))
     end    
     
     nothing
