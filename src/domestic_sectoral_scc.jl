@@ -18,8 +18,6 @@ scc_sectoral_domestic = function(year, n)
         (label = "3.0%", prtp = exp(0.007702711) - 1, eta = 1.567899391),
     ];
 
-    pricelevel_2005_to_2020 = 113.648 / 87.504
-
     save_list = [
         (:Socioeconomic, :population_global),     # Global population (millions of persons)
         (:PerCapitaGDP,  :global_pc_gdp),         # Global per capita GDP (thousands of USD $2005/yr)
