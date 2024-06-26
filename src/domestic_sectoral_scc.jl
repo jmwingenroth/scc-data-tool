@@ -34,7 +34,7 @@ scc_sectoral_domestic = function(year, n)
         (:ch4_cycle, :CH₄)                        # Total atmospheric concentrations (ppb)
     ];
 
-    covar_dir = "output/covariates/covariates-n$n"
+    covar_dir = "output/covariates/covariates-$year-n$n"
 
     m = MimiGIVE.get_model(socioeconomics_source=:RFF)
 
@@ -46,46 +46,34 @@ scc_sectoral_domestic = function(year, n)
         year = year,
         last_year = 2300,
         discount_rates = discount_rates,
-        certainty_equivalent = true,
+        certainty_equivalent = false,
         fair_parameter_set = :random,
         rffsp_sampling = :random,
         n = n,
         gas = :CO2,
         save_list = save_list,
         output_dir = covar_dir,
-        save_md = true,
-        save_cpc = true,
+        save_md = false,
+        save_cpc = false,
         compute_sectoral_values = true,
         compute_domestic_values = true,
         CIAM_foresight = :perfect,
         CIAM_GDPcap = true,
         pulse_size = 1e-4)
 
-    ## blank data
-    scghg = DataFrame(sector=Symbol[], discount_rate=String[], scghg=Float64[])
-    ce_scghg = DataFrame(sector=Symbol[], discount_rate=String[], ce_scghg=Float64[])
+        ## blank data
+        scghg = DataFrame(region=Symbol[], sector=Symbol[], discount_rate=String[], scghg=Float64[])
+        ce_scghg = DataFrame(region=Symbol[], sector=Symbol[], discount_rate=String[], ce_scghg=Float64[])
 
-    ## populate data
-    for (k,v) in results[:scc]
-        push!(ce_scghg, (sector=k.sector, discount_rate=k.dr_label, ce_scghg=results[:scc][k].ce_scc*pricelevel_2005_to_2020))
-        for sc in results[:scc][k].sccs
-            push!(scghg, (sector=k.sector, discount_rate=k.dr_label, scghg=sc*pricelevel_2005_to_2020))
+        ## populate data
+        for (k,v) in results[:scc]
+            for sc in results[:scc][k].sccs
+                push!(scghg, (region=k.region, sector=k.sector, discount_rate=k.dr_label, scghg=sc))
+            end
         end
-    end
+        
+        ## export    
+        scghg |> save(joinpath(scc_dir, "sc-n$n.csv"))
     
-    ## export    
-    scghg |> save(joinpath(scc_dir, "scc-n$n.csv"))
-    ce_scghg |> save(joinpath(scc_dir, "cert-equiv-scc-n$n.csv"))
-
-    #marginal damages
-    for (k,v) in results[:mds]
-        DataFrame(v, :auto) |> save(joinpath(scc_dir, "mds_n$n-$(k.sector).csv"))
-    end    
-
-    #CPC
-    for (k,v) in results[:cpc]
-        DataFrame(v, :auto) |> save(joinpath(scc_dir, "cpc_n$n-$(k.sector).csv"))
-    end    
-    
-    nothing
+    return results
 end
