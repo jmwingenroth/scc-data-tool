@@ -422,8 +422,7 @@ aggregate_scghg <- scghg_data[sec_idx] %>%
 ce_aggregate_scghg <- ce_scghg_data[sec_idx] %>% 
   lapply(., filter, sector == "total")
 
-sectoral_scghg <- scghg_data[sec_idx] %>% 
-  lapply(., filter, sector != "total")
+sectoral_scghg <- scghg_data[sec_idx]
 
 DICE_scghg <- scghg_data[DICE_idx] %>% 
   lapply(., filter, sector == "total")
@@ -495,10 +494,7 @@ for (i in 1:length(H_S_scghg)) {
                                         mid = ~ mean(.x),
                                         top = ~ quantile(.x, .975))), 
               .groups = "drop") %>%
-    group_by(discount_rate) %>%
-    mutate(across(scghg_bot:scghg_top, .fns = list(sum = ~ sum(.x)))) %>%
-    select(-scghg_bot, -scghg_top) %>%
-    pivot_wider(names_from = sector, values_from = scghg_mid) %>%
+    pivot_wider(names_from = sector, values_from = c(scghg_bot, scghg_mid, scghg_top)) %>%
     ungroup() %>%
     left_join(ce_aggregate_scghg[[i]]) %>%
     transmute(XSC = scenarios[ceiling(i*length(scenarios)/length(sectoral_scghg))],
@@ -506,14 +502,14 @@ for (i in 1:length(H_S_scghg)) {
               XDR = discount_rate,
               YEA = years[(ceiling(i/3) - 1) %% length(years) + 1],
               gas = gases[(i - 1)%%3 + 1],
-              value = SCC_format(bracket_4(scghg_bot_sum, 
-                                           scghg_mid_sum, 
-                                           scghg_top_sum, 
+              value = SCC_format(bracket_4(scghg_bot_total, 
+                                           scghg_mid_total, 
+                                           scghg_top_total, 
                                            ce_scghg), 
-                                   XAG = agriculture,
-                                   XHE = cromar_mortality,
-                                   XEN = energy,
-                                   XCI = slr))
+                                   XAG = scghg_mid_agriculture,
+                                   XHE = scghg_mid_cromar_mortality,
+                                   XEN = scghg_mid_energy,
+                                   XCI = scghg_mid_slr))
                                                                              
 }
 
@@ -552,6 +548,6 @@ final_final <- final %>%
 
 ### Export~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-write_csv(final_final, "output/web_ready.csv")
+write_csv(final_final, "web_ready.csv")
 
 # Runs in under a minute for n=100, 3 to 4 minutes for n=10000
