@@ -11,7 +11,11 @@ GASES <- c("CO2", "N2O", "CH4")
 PARAM_COLS <- c("XSC", "XTE", "XSL", "XPH", "XHE", "XAG", "XEN", "XCI", "XAD", "XDR", "YEA")
 
 SCENARIO_LABELS <- c(RFF = "RFF-SPs", SSP1 = "SSP1", SSP2 = "SSP2", SSP3 = "SSP3", SSP5 = "SSP5")
-DAMAGE_LABELS <- c(sectoral = "None", dice = "DICE", h_and_s = "Howard & Sterner")
+DAMAGE_LABELS <- c(
+  sectoral = "Rennert et al.",
+  dice = "DICE",
+  h_and_s = "Howard & Sterner"
+)
 
 # Binning config: list(min, max, step)
 BINS <- list(
@@ -145,7 +149,7 @@ build_main <- function(scghg, covars, damages) {
       (scenario == "RFF" & str_detect(discount_rate, "Ramsey")) |
       (scenario != "RFF" & str_detect(discount_rate, "CDR"))
     ) %>%
-    mutate(XDR = str_sub(discount_rate, 1, 4))
+    mutate(XDR = str_replace(str_sub(discount_rate, 1, 4), "\\.0", ""))
 
   # Build one row per (scenario, sector, year, discount_rate) for total
   base <- scghg_filt %>%
@@ -155,11 +159,11 @@ build_main <- function(scghg, covars, damages) {
       XSC = SCENARIO_LABELS[scenario],
       XAD = DAMAGE_LABELS[dmg_sector],
       XTE = "FAIR", XSL = "BRICK", XPH = "Fung",
-      XHE = if_else(XAD == "None", "Cromar", "None"),
-      XAG = if_else(XAD == "None", "Moore", "None"),
-      XEN = if_else(XAD == "None", "Clarke", "None"),
-      XCI = if_else(XAD == "None", "Diaz", "None"),
-      YEA = year
+      XHE = if_else(XAD == "Rennert et al.", "Cromar", ""),
+      XAG = if_else(XAD == "Rennert et al.", "Moore", ""),
+      XEN = if_else(XAD == "Rennert et al.", "Clarke", ""),
+      XCI = if_else(XAD == "Rennert et al.", "Diaz", ""),
+      YEA = paste0(year, "/01/01")
     )
 
   # Add SCGHG values for each gas
@@ -238,7 +242,7 @@ build_main <- function(scghg, covars, damages) {
 
 # Write outputs
 write_outputs <- function(main_df) {
-  out_dir <- paste0("dist_output_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+  out_dir <- "output/web_ready/"
   dir.create(out_dir, showWarnings = FALSE)
 
   # Identify value columns (those ending in _values)
@@ -262,7 +266,7 @@ write_outputs <- function(main_df) {
 
   # Write main CSV
   main_out <- main_df %>% select(all_of(col_order))
-  write_csv(main_out, file.path(out_dir, "new-main.csv"))
+  write_csv(main_out, file.path(out_dir, "new-main.csv"), na = "")
   cat("Wrote", file.path(out_dir, "new-main.csv"), "\n")
 
   # Write histogram CSVs
@@ -271,17 +275,35 @@ write_outputs <- function(main_df) {
     avg_col <- var
 
     hist_rows <- main_df %>%
-      select(all_of(PARAM_COLS), values = !!vc, average = !!avg_col) %>%
+      select(all_of(PARAM_COLS), average = !!avg_col, values = !!vc) %>%
       filter(!map_lgl(values, is.null)) %>%
-      mutate(hist = map2(values, var, ~{
-        if (is.null(.x) || all(is.na(.x))) return(tibble())
-        make_hist(na.omit(.x), .y)
-      })) %>%
+      mutate(
+        average = round(average, 4),
+        hist = map2(values, var, ~{
+          if (is.null(.x) || all(is.na(.x))) return(tibble())
+          make_hist(na.omit(.x), .y)
+        })
+      ) %>%
       select(-values) %>%
-      unnest(hist, keep_empty = FALSE)
+      unnest(hist, keep_empty = FALSE) %>%
+      select(all_of(PARAM_COLS), x, average, y) %>%
+      # Sort rows to match reference file order (BEFORE converting to character)
+      arrange(
+        XSC,
+        factor(XAD, levels = c("Rennert et al.", "Howard & Sterner", "DICE")),
+        XDR,
+        YEA,
+        x
+      ) %>%
+      # Convert numeric columns to character for proper quoting
+      mutate(
+        x = as.character(x),
+        average = as.character(average),
+        y = as.character(y)
+      )
 
     if (nrow(hist_rows) > 0) {
-      write_csv(hist_rows, file.path(out_dir, paste0(var, ".csv")))
+      write_csv(hist_rows, file.path(out_dir, paste0(var, ".csv")), quote = "all")
     }
   }
 
