@@ -266,7 +266,7 @@ write_outputs <- function(main_df) {
 
   # Write main CSV
   main_out <- main_df %>% select(all_of(col_order))
-  write_csv(main_out, file.path(out_dir, "new-main.csv"), na = "")
+  write_csv(main_out, file.path(out_dir, "new-main.csv"), na = "", quote = "all")
   cat("Wrote", file.path(out_dir, "new-main.csv"), "\n")
 
   # Write histogram CSVs
