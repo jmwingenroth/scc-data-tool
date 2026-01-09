@@ -38,8 +38,8 @@ COVAR_MAP <- list(
   sea_level_rise = c("SEA", 100),
   pH = c("OPH", 1),
   `co2` = c("CON", 1),
-  `N₂O` = c("NOC", 1),
-  `CH₄` = c("MEC", 1)
+  `n2o` = c("NOC", 1),
+  `ch4` = c("MEC", 1)
 )
 
 # Helper: create histogram bins
