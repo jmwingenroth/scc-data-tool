@@ -303,7 +303,9 @@ write_outputs <- function(main_df) {
       )
 
     if (nrow(hist_rows) > 0) {
-      write_csv(hist_rows, file.path(out_dir, paste0(var, ".csv")), quote = "all")
+      # Rename CON to CONC for Windows compatibility (CON is reserved)
+      filename <- if_else(var == "CON", "CONC", var)
+      write_csv(hist_rows, file.path(out_dir, paste0(filename, ".csv")), quote = "all")
     }
   }
 
