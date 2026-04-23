@@ -1,3 +1,5 @@
 output/*
 WIP/*
 output_local/*
+renv/
+*DS_Store*
