@@ -2,4 +2,5 @@ output/covariates/
 output/scghg/
 WIP/*
 output_local/*
-.DS_Store
+renv/
+*DS_Store*
