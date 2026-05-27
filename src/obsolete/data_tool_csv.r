@@ -550,4 +550,4 @@ final_final <- final %>%
 
 write_csv(final_final, "web_ready.csv")
 
-# Runs in under a minute for n=100, 3 to 4 minutes for n=10000
+# M4 MacBook Pro, 32 GB RAM, 1 minute runtime
